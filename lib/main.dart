@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,23 +31,29 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Urmoney',
       routerConfig: router,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        scaffoldBackgroundColor: AppColors.background,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF), // A modern vibrant purple
-          brightness: Brightness.light,
+          seedColor: AppColors.primary,
+          surface: AppColors.background,
         ),
-        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+        textTheme: GoogleFonts.outfitTextTheme(Theme.of(context).textTheme).apply(
+          bodyColor: AppColors.textPrimary,
+          displayColor: AppColors.textPrimary,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+        ),
         useMaterial3: true,
       ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-           seedColor: const Color(0xFF6C63FF),
-           brightness: Brightness.dark,
-        ),
-        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-        useMaterial3: true,
-      ),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light, // Specifically enforcing light mode to avoid dark UI
     );
   }
 }
