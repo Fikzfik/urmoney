@@ -6,6 +6,7 @@ import 'tabs/home_tab.dart';
 import 'tabs/wallets_tab.dart';
 import 'tabs/analytics_tab.dart';
 import 'tabs/settings_tab.dart';
+import 'package:urmoney/features/transactions/presentation/screens/receipt_scanner_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -15,7 +16,12 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  int _currentIndex = 0;
+  int _tabIndex = 0;
+
+  int get _navIndex {
+    if (_tabIndex >= 2) return _tabIndex + 1;
+    return _tabIndex;
+  }
 
   final List<Widget> _pages = const [
     HomeTab(),
@@ -29,10 +35,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(
-        index: _currentIndex,
+        index: _tabIndex,
         children: _pages,
       ),
-      floatingActionButton: _currentIndex != 3 // Hide on Settings
+      floatingActionButton: _tabIndex != 3 // Hide on Settings
           ? FloatingActionButton(
               onPressed: () {
                 showModalBottomSheet(
@@ -60,19 +66,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ]
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          currentIndex: _navIndex,
+          onTap: (index) {
+            if (index == 2) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()),
+              );
+            } else {
+              setState(() => _tabIndex = index > 2 ? index - 1 : index);
+            }
+          },
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.textSecondary,
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           elevation: 0,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'Wallets'),
-            BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analytics'),
-            BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Settings'),
+          items: [
+            const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+            const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'Wallets'),
+            BottomNavigationBarItem(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+              ),
+              label: 'Scan AI',
+            ),
+            const BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analytics'),
+            const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Settings'),
           ],
         ),
       ),

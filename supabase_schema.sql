@@ -29,6 +29,7 @@ create table category_items (
     id uuid primary key default uuid_generate_v4(),
     category_id uuid references categories(id) on delete cascade not null,
     name text not null,
+    icon text,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
     deleted_at timestamp with time zone
