@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
+import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
 import 'package:urmoney/features/dashboard/presentation/widgets/background_pattern.dart';
 
 class HomeTab extends ConsumerWidget {
@@ -30,27 +31,66 @@ class HomeTab extends ConsumerWidget {
   }
 
   Widget _buildAppBar(BuildContext context, WidgetRef ref) {
+    final bookState = ref.watch(bookProvider);
+    final activeBook = bookState.activeBook;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                'Good Morning,',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(Icons.menu_book_rounded, color: AppColors.primary),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Fikz!',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Buku Catatan',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  if (bookState.isLoading && activeBook == null)
+                    const Text('Memuat...', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark))
+                  else if (bookState.books.isEmpty)
+                    GestureDetector(
+                      onTap: () => _showAddBookDialog(context, ref),
+                      child: const Text('Buat Buku +', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                    )
+                  else
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: activeBook?.id,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                        isDense: true,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                        ),
+                        items: bookState.books.map((b) {
+                          return DropdownMenuItem(
+                            value: b.id,
+                            child: Text(b.name),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final book = bookState.books.firstWhere((b) => b.id == val);
+                            ref.read(bookProvider.notifier).setActiveBook(book);
+                          }
+                        },
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -63,10 +103,47 @@ class HomeTab extends ConsumerWidget {
               ],
             ),
             child: IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
-              onPressed: () {},
+              icon: const Icon(Icons.add_rounded, color: AppColors.textPrimary),
+              onPressed: () => _showAddBookDialog(context, ref),
             ),
           )
+        ],
+      ),
+    );
+  }
+
+  void _showAddBookDialog(BuildContext context, WidgetRef ref) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Buat Buku Baru', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(
+            hintText: 'Nama Buku (Toples, Usaha...)',
+            filled: true,
+            fillColor: AppColors.background,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              if (ctrl.text.trim().isNotEmpty) {
+                ref.read(bookProvider.notifier).addBook(ctrl.text.trim());
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Simpan'),
+          ),
         ],
       ),
     );

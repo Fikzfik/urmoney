@@ -3,6 +3,74 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
 import 'package:urmoney/features/transactions/presentation/screens/category_settings_screen.dart';
+
+String _evalMath(String expr) {
+  try {
+    var s = expr.replaceAll('×', '*').replaceAll('÷', '/');
+    List<String> tokens = [];
+    String numStr = '';
+    for (int i=0; i<s.length; i++) {
+        var c = s[i];
+        if (['+', '-', '*', '/'].contains(c)) {
+          if (numStr.isNotEmpty) tokens.add(numStr);
+          tokens.add(c);
+          numStr = '';
+        } else {
+          numStr += c;
+        }
+    }
+    if (numStr.isNotEmpty) tokens.add(numStr);
+    if (tokens.isEmpty) return '0';
+    
+    for (int i=1; i<tokens.length-1; i+=2) {
+        if (tokens[i] == '*' || tokens[i] == '/') {
+          double a = double.parse(tokens[i-1]);
+          double b = double.parse(tokens[i+1]);
+          double res = tokens[i] == '*' ? a * b : a / b;
+          tokens.replaceRange(i-1, i+2, [res.toString()]);
+          i -= 2; 
+        }
+    }
+    double result = double.parse(tokens[0]);
+    for (int i=1; i<tokens.length-1; i+=2) {
+        double b = double.parse(tokens[i+1]);
+        if (tokens[i] == '+') result += b;
+        if (tokens[i] == '-') result -= b;
+    }
+    
+    if (result == result.toInt()) return result.toInt().toString();
+    String formatted = result.toStringAsFixed(2);
+    if (formatted.endsWith('.00')) formatted = formatted.substring(0, formatted.length - 3);
+    else if (formatted.endsWith('0')) formatted = formatted.substring(0, formatted.length - 1);
+    return formatted;
+  } catch (e) {
+    return expr;
+  }
+}
+
+String _updateAmountForm(String amount, String val) {
+  if (val == 'C') return '0';
+  if (val == '=') return _evalMath(amount);
+  if (val == '⌫') {
+    if (amount.length > 1) return amount.substring(0, amount.length - 1);
+    return '0';
+  }
+  
+  if (amount == '0' && !['.', '+', '-', '×', '÷'].contains(val)) return val;
+  
+  if (['+', '-', '×', '÷'].contains(val)) {
+    String last = amount[amount.length - 1];
+    if (['+', '-', '×', '÷', '.'].contains(last)) {
+      return amount.substring(0, amount.length - 1) + val;
+    } else {
+      return amount + val;
+    }
+  }
+  
+  if (amount.length < 25) return amount + val;
+  return amount;
+}
+
 class AddTransactionBottomSheet extends StatelessWidget {
   const AddTransactionBottomSheet({super.key});
 
@@ -65,15 +133,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
 
   void _onKeypadTap(String val) {
     setState(() {
-      if (val == '⌫') {
-        if (_amount.length > 1) _amount = _amount.substring(0, _amount.length - 1);
-        else _amount = '0';
-      } else if (val == '.') {
-        if (!_amount.contains('.')) _amount += '.';
-      } else {
-        if (_amount == '0') _amount = val;
-        else if (_amount.length < 15) _amount += val;
-      }
+      _amount = _updateAmountForm(_amount, val);
     });
   }
 
@@ -163,6 +223,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
           final parent = parents[index];
           final isSelected = activeIndex == index;
           return ChoiceChip(
+            showCheckmark: false,
             avatar: Icon(parent.icon, size: 14, color: isSelected ? Colors.white : themeColor),
             label: Text(
               parent.label,
@@ -190,7 +251,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   Widget build(BuildContext context) {
     final state = ref.watch(categoryProvider);
     final parents = widget.isExpense ? state.expenseParents : state.incomeParents;
-    final themeColor = widget.isExpense ? Colors.redAccent : Colors.teal;
+    final themeColor = widget.isExpense ? Colors.blue : Colors.teal;
     final activeIdx = _selectedParentIndex.clamp(0, parents.isEmpty ? 0 : parents.length - 1);
     final items = parents.isEmpty ? <CategoryItem>[] : state.itemsFor(parents[activeIdx].id, widget.isExpense);
 
@@ -225,15 +286,7 @@ class _TransferFormState extends State<_TransferForm> {
 
   void _onKeypadTap(String val) {
     setState(() {
-      if (val == '⌫') {
-        if (_amount.length > 1) _amount = _amount.substring(0, _amount.length - 1);
-        else _amount = '0';
-      } else if (val == '.') {
-        if (!_amount.contains('.')) _amount += '.';
-      } else {
-        if (_amount == '0') _amount = val;
-        else if (_amount.length < 15) _amount += val;
-      }
+      _amount = _updateAmountForm(_amount, val);
     });
   }
 
@@ -303,7 +356,7 @@ class _TransferFormState extends State<_TransferForm> {
   }
 }
 
-class _CustomKeypad extends StatelessWidget {
+class _CustomKeypad extends StatefulWidget {
   final String amount;
   final TextEditingController noteController;
   final Function(String) onKeypadTap;
@@ -318,148 +371,268 @@ class _CustomKeypad extends StatelessWidget {
     required this.themeColor,
   });
 
+  @override
+  State<_CustomKeypad> createState() => _CustomKeypadState();
+}
+
+class _CustomKeypadState extends State<_CustomKeypad> {
+  bool _showExtras = false;
+  String _selectedWallet = 'Bawaan';
+  final List<String> _wallets = ['Bawaan', 'Gopay', 'Dana', 'Bank BCA', 'Cash'];
+
   String _formatAmount(String amt) {
     if (amt.isEmpty || amt == '0') return '0';
-    List<String> parts = amt.split('.');
-    String ints = parts[0];
-    String res = '';
-    int count = 0;
-    for (int i = ints.length - 1; i >= 0; i--) {
-      count++;
-      res = ints[i] + res;
-      if (count % 3 == 0 && i != 0 && ints[i-1] != '-') res = '.$res';
-    }
-    if (parts.length > 1) return '$res,${parts[1]}';
-    return res;
+    return amt.replaceAllMapped(RegExp(r'\d+(\.\d+)?'), (match) {
+      String numStr = match.group(0)!;
+      final parts = numStr.split('.');
+      final ints = parts[0];
+      String res = '';
+      int count = 0;
+      for (int i = ints.length - 1; i >= 0; i--) {
+        count++;
+        res = ints[i] + res;
+        if (count % 3 == 0 && i != 0) res = '.$res';
+      }
+      if (parts.length > 1) return '$res,${parts[1]}';
+      return res;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final color = widget.themeColor;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+        color: color,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: themeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Icon(Icons.edit_note_rounded, color: themeColor, size: 20),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── ^ handle ──────────────────────────────────────────────────
+            GestureDetector(
+              onTap: () => setState(() => _showExtras = !_showExtras),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Center(
+                  child: AnimatedRotation(
+                    turns: _showExtras ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white54, size: 24),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: noteController,
-                    decoration: const InputDecoration(
-                      hintText: 'Tulis Catatan...',
-                      border: InputBorder.none,
-                      isDense: true,
+              ),
+            ),
+            // ── extras panel (gallery + GPS) ───────────────────────────────
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 250),
+              crossFadeState: _showExtras ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              firstChild: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {},
+                      child: Container(
+                        width: 60, height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Center(child: Icon(Icons.photo_library_rounded, color: Colors.white, size: 24)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.location_on_rounded, color: color, size: 20),
+                              const SizedBox(height: 2),
+                              const Text('Lokasi Nonaktifkan', style: TextStyle(fontSize: 11, color: Colors.black87, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              secondChild: const SizedBox.shrink(),
+            ),
+
+            // Note & Amount Row
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _showWalletPicker(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Icon(Icons.account_balance_wallet_rounded, color: color, size: 16),
                     ),
                   ),
-                ),
-                Text(
-                  _formatAmount(amount),
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: themeColor),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: Colors.grey.shade200, thickness: 1),
-          SizedBox(
-            height: 250,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    children: [
-                      _buildRow(['7', '8', '9']),
-                      _buildRow(['4', '5', '6']),
-                      _buildRow(['1', '2', '3']),
-                      _buildRow(['.', '0', '⌫']),
-                    ],
-                  ),
-                ),
-                Container(width: 1, color: Colors.grey.shade200),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {},
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.calendar_today_rounded, color: Colors.grey.shade600, size: 20),
-                                const SizedBox(height: 4),
-                                Text('Hari Ini', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
-                              ],
-                            ),
-                          ),
-                        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: widget.noteController,
+                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      decoration: const InputDecoration(
+                        hintText: 'Nota',
+                        hintStyle: TextStyle(fontSize: 14, color: Colors.black38),
+                        border: InputBorder.none,
+                        isDense: true,
                       ),
-                      Container(height: 1, color: Colors.grey.shade200),
-                      Expanded(
-                        flex: 3,
-                        child: Material(
-                          color: themeColor,
-                          child: InkWell(
-                            onTap: onSave,
-                            child: const Center(child: Icon(Icons.check_rounded, color: Colors.white, size: 36)),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                )
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatAmount(widget.amount),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 8),
+
+            // Keypad Grid
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _buildKeyGrid(color),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildRow(List<String> keys) {
-    return Expanded(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: keys.map((k) {
-          return Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey.shade200, width: k == keys.last ? 0 : 1),
-                  bottom: BorderSide(color: Colors.grey.shade200, width: k == '.' || k == '0' || k == '⌫' ? 0 : 1),
-                )
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onKeypadTap(k),
-                  child: Center(
-                    child: k == '⌫' 
-                      ? Icon(Icons.backspace_rounded, color: Colors.grey.shade700)
-                      : Text(k, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+  Widget _buildKeyGrid(Color color) {
+    final rows = [
+      ['C', '÷', '×', '⌫'],
+      ['7', '8', '9', '-'],
+      ['4', '5', '6', '+'],
+      ['1', '2', '3', '='],
+      ['TODAY', '0', '.', '✓'],
+    ];
+
+    return Column(
+      children: rows.map((row) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: row.map((k) {
+            bool isDigit = RegExp(r'[0-9.]').hasMatch(k) || k == 'TODAY';
+            bool isAction = k == '✓';
+
+            Color btnColor;
+            Color textColor;
+            if (isAction) {
+               btnColor = Colors.white; 
+               textColor = color;
+            } else if (isDigit) {
+               btnColor = Colors.white;
+               textColor = Colors.black87;
+            } else {
+               btnColor = Colors.white.withOpacity(0.25);
+               textColor = Colors.white;
+            }
+
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: GestureDetector(
+                  onTap: () {
+                    if (k == '✓') widget.onSave();
+                    else widget.onKeypadTap(k);
+                  },
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: btnColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: isDigit || isAction ? [
+                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+                      ] : [],
+                    ),
+                    child: Center(
+                      child: _buildKeyContent(k, textColor),
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildKeyContent(String k, Color color) {
+    if (k == '⌫') return Icon(Icons.backspace_rounded, color: color, size: 18);
+    if (k == '✓') return Icon(Icons.check_rounded, color: color, size: 24);
+    if (k == 'TODAY') return Icon(Icons.calendar_today_rounded, color: color, size: 18);
+    return Text(k, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color));
+  }
+
+  void _showWalletPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(height: 4, width: 40,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            const Text('Pilih Dompet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ..._wallets.map((w) => ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: widget.themeColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.account_balance_wallet_rounded, color: widget.themeColor, size: 20),
+              ),
+              title: Text(w, style: const TextStyle(fontWeight: FontWeight.w600)),
+              trailing: _selectedWallet == w
+                  ? Icon(Icons.check_circle_rounded, color: widget.themeColor)
+                  : null,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onTap: () {
+                setState(() => _selectedWallet = w);
+                Navigator.pop(context);
+              },
+            )),
+          ],
+        ),
       ),
     );
   }
 }
+

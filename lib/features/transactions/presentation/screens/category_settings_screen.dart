@@ -512,43 +512,61 @@ class _ItemRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Dismissible(
-      key: Key(item.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: Colors.redAccent.withOpacity(0.1),
-        child: const Icon(Icons.delete_rounded, color: Colors.redAccent),
-      ),
-      onDismissed: (_) => ref.read(categoryProvider.notifier).deleteItem(isExpense, item.id),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: themeColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(item.icon, color: themeColor, size: 20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(
+              color: themeColor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(item.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            child: Icon(item.icon, color: themeColor, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(item.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          ),
+          GestureDetector(
+            onTap: () => _showEditDialog(context, ref),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Icon(Icons.edit_rounded, size: 18, color: Colors.grey.shade400),
             ),
-            GestureDetector(
-              onTap: () => _showEditDialog(context, ref),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.edit_rounded, size: 18, color: Colors.grey.shade400),
-              ),
+          ),
+          GestureDetector(
+            onTap: () => _confirmDelete(context, ref),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Item?'),
+        content: Text('Hapus "${item.label}" secara permanen?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(categoryProvider.notifier).deleteItem(isExpense, item.id);
+    }
   }
 
   Future<void> _showEditDialog(BuildContext context, WidgetRef ref) async {
