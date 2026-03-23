@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
-import 'package:urmoney/features/auth/providers/auth_provider.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
 import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 

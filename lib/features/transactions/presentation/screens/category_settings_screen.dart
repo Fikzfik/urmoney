@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
+import 'package:urmoney/features/transactions/data/models/category_model.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
 import 'package:urmoney/features/transactions/presentation/widgets/category_icon_picker.dart';
@@ -213,7 +215,7 @@ class _CategoryList extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ParentCategoryCard extends ConsumerStatefulWidget {
-  final ParentCategory parent;
+  final CategoryModel parent;
   final bool isExpense;
   final Color themeColor;
 
@@ -234,7 +236,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
   Widget build(BuildContext context) {
     final state = ref.watch(categoryProvider);
     final items = state.itemsFor(widget.parent.id, widget.isExpense)
-        .where((i) => !widget.parent.isRecommended ? i.parentId == widget.parent.id : true)
+        .where((i) => !widget.parent.isDefault ? i.categoryId == widget.parent.id : true)
         .toList();
 
     return AnimatedContainer(
@@ -266,7 +268,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
               width: 44, height: 44,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: widget.parent.isRecommended
+                  colors: widget.parent.isDefault && (widget.parent.id == 'rec_exp' || widget.parent.id == 'rec_inc')
                       ? [const Color(0xFFFFC300), const Color(0xFFFF9500)]
                       : [widget.themeColor.withOpacity(0.7), widget.themeColor],
                   begin: Alignment.topLeft,
@@ -281,14 +283,14 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.parent.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  if (widget.parent.isRecommended)
+                  Text(widget.parent.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  if (widget.parent.isDefault)
                     Text('Default • tidak bisa dihapus',
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade500))
                 ],
               ),
             ),
-            if (!widget.parent.isSystem) ...[
+            if (!widget.parent.isDefault) ...[
               _iconBtn(Icons.edit_rounded, () => _showRenameDialog()),
               _iconBtn(Icons.delete_outline_rounded, () => _confirmDelete(), color: Colors.redAccent),
             ],
@@ -303,12 +305,12 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
     );
   }
 
-  Widget _buildItemList(List<CategoryItem> items) {
+  Widget _buildItemList(List<CategoryItemModel> items) {
     return Column(
       children: [
         Divider(height: 1, color: Colors.grey.shade100),
         ...items.map((item) => _ItemRow(item: item, isExpense: widget.isExpense, themeColor: widget.themeColor)),
-        if (!widget.parent.isRecommended)
+        if (!(widget.parent.isDefault && (widget.parent.id == 'rec_exp' || widget.parent.id == 'rec_inc')))
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: GestureDetector(
@@ -350,7 +352,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Kategori?'),
-        content: Text('Semua item dalam "${widget.parent.label}" juga akan dihapus.'),
+        content: Text('Semua item dalam "${widget.parent.name}" juga akan dihapus.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
           ElevatedButton(
@@ -362,12 +364,12 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
       ),
     );
     if (confirmed == true) {
-      ref.read(categoryProvider.notifier).deleteParent(widget.isExpense, widget.parent.id);
+      ref.read(categoryProvider.notifier).deleteParent(widget.parent.id);
     }
   }
 
   Future<void> _showRenameDialog() async {
-    final ctrl = TextEditingController(text: widget.parent.label);
+    final ctrl = TextEditingController(text: widget.parent.name);
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -386,7 +388,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
             style: ElevatedButton.styleFrom(backgroundColor: widget.themeColor, foregroundColor: Colors.white),
             onPressed: () {
               if (ctrl.text.trim().isNotEmpty) {
-                ref.read(categoryProvider.notifier).renameParent(widget.isExpense, widget.parent.id, ctrl.text.trim());
+                ref.read(categoryProvider.notifier).renameParent(widget.parent.id, ctrl.text.trim());
               }
               Navigator.pop(ctx);
             },
@@ -422,7 +424,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
                     decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
                 ),
                 const SizedBox(height: 16),
-                Text('Tambah Item ke "${widget.parent.label}"',
+                Text('Tambah Item ke "${widget.parent.name}"',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey.shade800)),
                 const SizedBox(height: 20),
                 Row(
@@ -476,7 +478,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
                         onPressed: () {
                           if (ctrl.text.trim().isEmpty) return;
                           ref.read(categoryProvider.notifier)
-                            .addItem(widget.isExpense, ctrl.text.trim(), selectedIcon, widget.parent.id);
+                            .addItem(ctrl.text.trim(), selectedIcon, widget.parent.id);
                           Navigator.pop(ctx);
                         },
                         style: ElevatedButton.styleFrom(
@@ -505,7 +507,7 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ItemRow extends ConsumerWidget {
-  final CategoryItem item;
+  final CategoryItemModel item;
   final bool isExpense;
   final Color themeColor;
   const _ItemRow({required this.item, required this.isExpense, required this.themeColor});
@@ -526,7 +528,7 @@ class _ItemRow extends ConsumerWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(item.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            child: Text(item.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           ),
           GestureDetector(
             onTap: () => _showEditDialog(context, ref),
@@ -553,7 +555,7 @@ class _ItemRow extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Item?'),
-        content: Text('Hapus "${item.label}" secara permanen?'),
+        content: Text('Hapus "${item.name}" secara permanen?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
           ElevatedButton(
@@ -565,12 +567,12 @@ class _ItemRow extends ConsumerWidget {
       ),
     );
     if (confirmed == true) {
-      ref.read(categoryProvider.notifier).deleteItem(isExpense, item.id);
+      ref.read(categoryProvider.notifier).deleteItem(item.id);
     }
   }
 
   Future<void> _showEditDialog(BuildContext context, WidgetRef ref) async {
-    final ctrl = TextEditingController(text: item.label);
+    final ctrl = TextEditingController(text: item.name);
     IconData selectedIcon = item.icon;
 
     await showModalBottomSheet(
@@ -633,9 +635,9 @@ class _ItemRow extends ConsumerWidget {
                   child: ElevatedButton(
                     onPressed: () {
                       ref.read(categoryProvider.notifier).editItem(
-                        isExpense, item.id,
-                        label: ctrl.text.trim().isEmpty ? null : ctrl.text.trim(),
-                        icon: selectedIcon,
+                        item.id,
+                        ctrl.text.trim().isEmpty ? item.name : ctrl.text.trim(),
+                        selectedIcon.codePoint,
                       );
                       Navigator.pop(ctx);
                     },

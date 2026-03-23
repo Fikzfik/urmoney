@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/books/data/models/book_model.dart';
 
@@ -34,14 +33,13 @@ class BookState {
 class BookNotifier extends Notifier<BookState> {
   @override
   BookState build() {
-    // Listen to current user changes
-    ref.listen<User?>(currentUserProvider, (previous, next) {
-      if (next != null && previous?.id != next.id) {
-        fetchBooks();
-      } else if (next == null) {
-        state = BookState(); // clear state on logout
-      }
-    }, fireImmediately: true);
+    final user = ref.watch(currentUserProvider);
+    
+    if (user != null) {
+      // Trigger fetch on next tick to avoid updating during build
+      Future.microtask(() => fetchBooks());
+      return BookState(isLoading: true);
+    }
     
     return BookState();
   }
@@ -59,7 +57,10 @@ class BookNotifier extends Notifier<BookState> {
           .eq('user_id', user.id)
           .order('created_at');
 
+      print('Fetched books for user ${user.id}: $response');
       final books = (response as List).map((json) => BookModel.fromJson(json)).toList();
+      print('Parsed ${books.length} books successfully.');
+      
       BookModel? active = books.isNotEmpty ? books.first : null;
 
       // Maintain active book if it still exists
@@ -69,6 +70,7 @@ class BookNotifier extends Notifier<BookState> {
 
       state = state.copyWith(isLoading: false, books: books, activeBook: active);
     } catch (e) {
+      print('CRITICAL: fetchBooks failed: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -79,12 +81,14 @@ class BookNotifier extends Notifier<BookState> {
 
     try {
       final client = ref.read(supabaseClientProvider);
+      print('Inserting new book: $name for user ${user.id}');
       final newBookRes = await client.from('books').insert({
         'user_id': user.id,
         'name': name,
         'icon': icon,
       }).select().single();
 
+      print('Supabase response for new book: $newBookRes');
       final newBook = BookModel.fromJson(newBookRes);
       
       final updatedBooks = [...state.books, newBook];

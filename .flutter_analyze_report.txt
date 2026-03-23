@@ -1,0 +1,76 @@
+Analyzing urmoney...                                            
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\widgets\gradient_button.dart:27:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\presentation\screens\register_screen.dart:75:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\presentation\screens\register_screen.dart:87:74 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\dashboard_screen.dart:62:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\dashboard_screen.dart:93:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\analytics_tab.dart:36:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\analytics_tab.dart:48:78 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\home_tab.dart:192:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\home_tab.dart:291:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\home_tab.dart:372:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\home_tab.dart:379:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\home_tab.dart:448:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\settings_tab.dart:72:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\settings_tab.dart:100:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\settings_tab.dart:155:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\wallets_tab.dart:80:77 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\wallets_tab.dart:100:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\wallets_tab.dart:124:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\wallets_tab.dart:135:66 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\wallets_tab.dart:178:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\screens\tabs\wallets_tab.dart:190:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\widgets\background_pattern.dart:20:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\widgets\background_pattern.dart:33:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dashboard\presentation\widgets\background_pattern.dart:46:56 - deprecated_member_use
+warning - Unused import: 'package:supabase_flutter/supabase_flutter.dart' - lib\features\transactions\presentation\providers\category_provider.dart:3:8 - unused_import
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:162:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:173:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:184:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:201:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:215:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:226:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:237:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\transactions\presentation\providers\category_provider.dart:248:7 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:123:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:125:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:248:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:273:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:323:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:440:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:442:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:524:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:610:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\category_settings_screen.dart:612:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\screens\receipt_scanner_screen.dart:24:42 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:45:36 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:46:39 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:170:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:176:72 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:209:31 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:309:72 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:445:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:489:62 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:554:40 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:563:35 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:564:26 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:572:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\transactions\presentation\widgets\add_transaction_bottom_sheet.dart:619:44 - deprecated_member_use
+warning - The declaration '<unnamed>' isn't referenced - lib\features\wallets\presentation\providers\wallet_provider.dart:1:1 - unused_element
+  error - Expected a method, getter, setter or operator declaration - lib\features\wallets\presentation\providers\wallet_provider.dart:1:1 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\features\wallets\presentation\providers\wallet_provider.dart:1:2 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\features\wallets\presentation\providers\wallet_provider.dart:1:3 - expected_executable
+  error - Expected to find ';' - lib\features\wallets\presentation\providers\wallet_provider.dart:1:4 - expected_token
+  error - Undefined class 'dart' - lib\features\wallets\presentation\providers\wallet_provider.dart:1:4 - undefined_class
+  error - Directives must appear before any declarations - lib\features\wallets\presentation\providers\wallet_provider.dart:2:1 - directive_after_declaration
+  error - Expected an identifier - lib\features\wallets\presentation\providers\wallet_provider.dart:2:1 - missing_identifier
+  error - Directives must appear before any declarations - lib\features\wallets\presentation\providers\wallet_provider.dart:3:1 - directive_after_declaration
+  error - Directives must appear before any declarations - lib\features\wallets\presentation\providers\wallet_provider.dart:4:1 - directive_after_declaration
+  error - Directives must appear before any declarations - lib\features\wallets\presentation\providers\wallet_provider.dart:5:1 - directive_after_declaration
+  error - Undefined name 'supabaseClientProvider' - lib\features\wallets\presentation\providers\wallet_provider.dart:24:31 - undefined_identifier
+  error - Undefined name 'currentUserProvider' - lib\features\wallets\presentation\providers\wallet_provider.dart:40:27 - undefined_identifier
+  error - Undefined name 'supabaseClientProvider' - lib\features\wallets\presentation\providers\wallet_provider.dart:44:31 - undefined_identifier
+   info - Don't invoke 'print' in production code - lib\features\wallets\presentation\providers\wallet_provider.dart:59:7 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:52:63 - deprecated_member_use
+

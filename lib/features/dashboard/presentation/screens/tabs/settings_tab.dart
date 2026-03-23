@@ -3,6 +3,8 @@ import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:urmoney/features/dashboard/presentation/widgets/background_pattern.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/features/auth/providers/auth_provider.dart';
+import 'package:urmoney/core/providers/supabase_provider.dart';
+import 'package:urmoney/features/transactions/presentation/screens/category_settings_screen.dart';
 
 class SettingsTab extends ConsumerWidget {
   const SettingsTab({super.key});
@@ -31,14 +33,23 @@ class SettingsTab extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
-                      _buildProfileHeader(context),
+                      _buildProfileHeader(context, ref),
                       const SizedBox(height: 32),
                       _buildSettingsGroup(
                         title: 'General',
                         items: [
                           _SettingsItem(icon: Icons.person_outline, title: 'Profile Info', onTap: () {}),
                           _SettingsItem(icon: Icons.currency_exchange, title: 'Currency', subtitle: 'IDR Rupiah', onTap: () {}),
-                          _SettingsItem(icon: Icons.category_outlined, title: 'Manage Categories', onTap: () {}),
+                          _SettingsItem(
+                            icon: Icons.category_outlined,
+                            title: 'Manage Categories',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const CategorySettingsScreen()),
+                              );
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -86,7 +97,12 @@ class SettingsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context) {
+  Widget _buildProfileHeader(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final email = user?.email ?? 'Unknown Email';
+    final name = user?.userMetadata?['full_name'] ?? user?.email?.split('@')[0] ?? 'User';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
     return Row(
       children: [
         Container(
@@ -103,10 +119,10 @@ class SettingsTab extends ConsumerWidget {
               ),
             ],
           ),
-          child: const Center(
+          child: Center(
             child: Text(
-              'F',
-              style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+              initial,
+              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -115,14 +131,25 @@ class SettingsTab extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Fikz',
+              name,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const Text(
-              'fikz@example.com',
-              style: TextStyle(color: AppColors.textSecondary),
+            Text(
+              email,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.cloud_done_outlined, size: 14, color: Colors.green),
+                const SizedBox(width: 4),
+                Text(
+                  'Cloud Synced',
+                  style: TextStyle(color: Colors.green.shade700, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ],
         )
