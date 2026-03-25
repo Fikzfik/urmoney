@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/features/auth/providers/auth_provider.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/transactions/presentation/screens/category_settings_screen.dart';
+import 'package:urmoney/features/books/presentation/screens/book_management_screen.dart';
 
 class SettingsTab extends ConsumerWidget {
   const SettingsTab({super.key});
@@ -39,6 +40,16 @@ class SettingsTab extends ConsumerWidget {
                         title: 'General',
                         items: [
                           _SettingsItem(icon: Icons.person_outline, title: 'Profile Info', onTap: () {}),
+                          _SettingsItem(
+                            icon: Icons.book_outlined,
+                            title: 'Manage Books',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const BookManagementScreen()),
+                              );
+                            },
+                          ),
                           _SettingsItem(icon: Icons.currency_exchange, title: 'Currency', subtitle: 'IDR Rupiah', onTap: () {}),
                           _SettingsItem(
                             icon: Icons.category_outlined,

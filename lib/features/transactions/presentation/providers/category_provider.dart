@@ -75,13 +75,13 @@ class CategoryState {
 class CategoryNotifier extends Notifier<CategoryState> {
   @override
   CategoryState build() {
-    final activeBook = ref.watch(bookProvider.select((s) => s.activeBook));
+    final activeBookId = ref.watch(bookProvider.select((s) => s.activeBook?.id));
     
-    if (activeBook == null) {
+    if (activeBookId == null) {
       return CategoryState();
     }
     
-    Future.microtask(() => fetchCategories(activeBook.id));
+    Future.microtask(() => fetchCategories(activeBookId));
     return CategoryState(isLoading: true);
   }
 
@@ -132,15 +132,43 @@ class CategoryNotifier extends Notifier<CategoryState> {
 
     final blue = '0xFF448AFF';
     final teal = '0xFF009688';
-    final defaults = [
-      {'user_id': user.id, 'book_id': bookId, 'name': 'Makanan', 'type': 'expense', 'icon': Icons.fastfood.codePoint.toString(), 'is_default': true, 'color': blue},
-      {'user_id': user.id, 'book_id': bookId, 'name': 'Kendaraan', 'type': 'expense', 'icon': Icons.directions_car.codePoint.toString(), 'is_default': true, 'color': blue},
-      {'user_id': user.id, 'book_id': bookId, 'name': 'Transfer ke Buku Lain', 'type': 'expense', 'icon': Icons.swap_horiz.codePoint.toString(), 'is_default': true, 'color': blue},
-      {'user_id': user.id, 'book_id': bookId, 'name': 'Gaji', 'type': 'income', 'icon': Icons.monetization_on.codePoint.toString(), 'is_default': true, 'color': teal},
-      {'user_id': user.id, 'book_id': bookId, 'name': 'Transfer dari Buku Lain', 'type': 'income', 'icon': Icons.swap_horiz.codePoint.toString(), 'is_default': true, 'color': teal},
+    
+    // 1. Create Parent Categories
+    final parents = [
+      {'user_id': user.id, 'book_id': bookId, 'name': 'Kebutuhan', 'type': 'expense', 'icon': Icons.home_repair_service.codePoint.toString(), 'is_default': true, 'color': blue},
+      {'user_id': user.id, 'book_id': bookId, 'name': 'Makan & Minum', 'type': 'expense', 'icon': Icons.fastfood.codePoint.toString(), 'is_default': true, 'color': blue},
+      {'user_id': user.id, 'book_id': bookId, 'name': 'Transportasi', 'type': 'expense', 'icon': Icons.directions_car.codePoint.toString(), 'is_default': true, 'color': blue},
+      {'user_id': user.id, 'book_id': bookId, 'name': 'Hiburan', 'type': 'expense', 'icon': Icons.movie.codePoint.toString(), 'is_default': true, 'color': blue},
+      {'user_id': user.id, 'book_id': bookId, 'name': 'Transfer', 'type': 'expense', 'icon': Icons.swap_horiz.codePoint.toString(), 'is_default': true, 'color': blue},
+      {'user_id': user.id, 'book_id': bookId, 'name': 'Pendapatan', 'type': 'income', 'icon': Icons.monetization_on.codePoint.toString(), 'is_default': true, 'color': teal},
     ];
 
-    await client.from('categories').insert(defaults);
+    print('Seeding default categories...');
+    final parentRes = await client.from('categories').insert(parents).select();
+    final seededParents = (parentRes as List).map((j) => CategoryModel.fromJson(j)).toList();
+
+    // 2. Create Items for some parents
+    final items = [];
+    for (var parent in seededParents) {
+      if (parent.name == 'Kebutuhan') {
+        items.add({'category_id': parent.id, 'name': 'Listrik', 'icon': Icons.electric_bolt.codePoint.toString()});
+        items.add({'category_id': parent.id, 'name': 'Air', 'icon': Icons.water_drop.codePoint.toString()});
+        items.add({'category_id': parent.id, 'name': 'Internet', 'icon': Icons.wifi.codePoint.toString()});
+      } else if (parent.name == 'Makan & Minum') {
+        items.add({'category_id': parent.id, 'name': 'Sarapan', 'icon': Icons.coffee.codePoint.toString()});
+        items.add({'category_id': parent.id, 'name': 'Makan Siang', 'icon': Icons.lunch_dining.codePoint.toString()});
+        items.add({'category_id': parent.id, 'name': 'Makan Malam', 'icon': Icons.restaurant.codePoint.toString()});
+      } else if (parent.name == 'Pendapatan') {
+        items.add({'category_id': parent.id, 'name': 'Gaji', 'icon': Icons.payments.codePoint.toString()});
+        items.add({'category_id': parent.id, 'name': 'Bonus', 'icon': Icons.card_giftcard.codePoint.toString()});
+      }
+    }
+
+    if (items.isNotEmpty) {
+      print('Seeding category items...');
+      await client.from('category_items').insert(items);
+    }
+
     await fetchCategories(bookId);
   }
 

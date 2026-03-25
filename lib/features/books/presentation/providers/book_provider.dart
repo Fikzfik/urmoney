@@ -57,9 +57,8 @@ class BookNotifier extends Notifier<BookState> {
           .eq('user_id', user.id)
           .order('created_at');
 
-      print('Fetched books for user ${user.id}: $response');
       final books = (response as List).map((json) => BookModel.fromJson(json)).toList();
-      print('Parsed ${books.length} books successfully.');
+      
       
       BookModel? active = books.isNotEmpty ? books.first : null;
 
@@ -70,7 +69,6 @@ class BookNotifier extends Notifier<BookState> {
 
       state = state.copyWith(isLoading: false, books: books, activeBook: active);
     } catch (e) {
-      print('CRITICAL: fetchBooks failed: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -81,14 +79,12 @@ class BookNotifier extends Notifier<BookState> {
 
     try {
       final client = ref.read(supabaseClientProvider);
-      print('Inserting new book: $name for user ${user.id}');
       final newBookRes = await client.from('books').insert({
         'user_id': user.id,
         'name': name,
         'icon': icon,
       }).select().single();
 
-      print('Supabase response for new book: $newBookRes');
       final newBook = BookModel.fromJson(newBookRes);
       
       final updatedBooks = [...state.books, newBook];
@@ -103,6 +99,22 @@ class BookNotifier extends Notifier<BookState> {
 
   void setActiveBook(BookModel book) {
     state = state.copyWith(activeBook: book);
+  }
+
+  Future<void> deleteBook(String id) async {
+    try {
+      final client = ref.read(supabaseClientProvider);
+      await client.from('books').delete().eq('id', id);
+      
+      // If we deleted the active book, clear it locally first
+      if (state.activeBook?.id == id) {
+        state = state.copyWith(activeBook: null);
+      }
+      
+      await fetchBooks();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
   }
 }
 

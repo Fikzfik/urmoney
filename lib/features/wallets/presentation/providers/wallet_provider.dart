@@ -6,15 +6,15 @@ import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 class WalletNotifier extends Notifier<AsyncValue<List<WalletModel>>> {
   @override
   AsyncValue<List<WalletModel>> build() {
-    // Rebuild whenever activeBook changes
-    final activeBook = ref.watch(bookProvider.select((state) => state.activeBook));
+    // Watch active book ID to refetch when it changes
+    final activeBookId = ref.watch(bookProvider.select((s) => s.activeBook?.id));
     
-    if (activeBook == null) {
+    if (activeBookId == null) {
       return const AsyncValue.data([]);
     }
-    
+
     // Trigger fetch and return loading state
-    Future.microtask(() => fetchWallets(activeBook.id));
+    Future.microtask(() => fetchWallets(activeBookId));
     return const AsyncValue.loading();
   }
 
