@@ -34,7 +34,17 @@ class WalletNotifier extends Notifier<AsyncValue<List<WalletModel>>> {
     }
   }
 
-  Future<void> addWallet(String name, String type, double balance, {String? icon}) async {
+  Future<void> addWallet(
+    String name,
+    String type,
+    double balance, {
+    String? icon,
+    double? taxRate,
+    int? taxDay,
+    double? interestRate,
+    String? payoutSchedule,
+    int? payoutDay,
+  }) async {
     final bookId = ref.read(bookProvider).activeBook?.id;
     final user = ref.read(currentUserProvider);
     if (bookId == null || user == null) return;
@@ -48,6 +58,11 @@ class WalletNotifier extends Notifier<AsyncValue<List<WalletModel>>> {
         'type': type,
         'balance': balance,
         'icon': icon,
+        'tax_rate': taxRate,
+        'tax_day': taxDay,
+        'interest_rate': interestRate,
+        'payout_schedule': payoutSchedule,
+        'payout_day': payoutDay,
       }).select().single();
       
       final newWallet = WalletModel.fromJson(res);
@@ -56,6 +71,51 @@ class WalletNotifier extends Notifier<AsyncValue<List<WalletModel>>> {
       }
     } catch (e) {
       print('Error adding wallet: $e');
+    }
+  }
+
+  Future<void> updateWallet(
+    String id, {
+    String? name,
+    String? type,
+    double? balance,
+    String? icon,
+    double? taxRate,
+    int? taxDay,
+    double? interestRate,
+    String? payoutSchedule,
+    int? payoutDay,
+  }) async {
+    try {
+      final client = ref.read(supabaseClientProvider);
+      await client.from('wallets').update({
+        if (name != null) 'name': name,
+        if (type != null) 'type': type,
+        if (balance != null) 'balance': balance,
+        if (icon != null) 'icon': icon,
+        'tax_rate': taxRate,
+        'tax_day': taxDay,
+        'interest_rate': interestRate,
+        'payout_schedule': payoutSchedule,
+        'payout_day': payoutDay,
+      }).eq('id', id);
+
+      final activeBookId = ref.read(bookProvider).activeBook?.id;
+      if (activeBookId != null) await fetchWallets(activeBookId);
+    } catch (e) {
+      print('Error updating wallet: $e');
+    }
+  }
+
+  Future<void> deleteWallet(String id) async {
+    try {
+      final client = ref.read(supabaseClientProvider);
+      await client.from('wallets').delete().eq('id', id);
+
+      final activeBookId = ref.read(bookProvider).activeBook?.id;
+      if (activeBookId != null) await fetchWallets(activeBookId);
+    } catch (e) {
+      print('Error deleting wallet: $e');
     }
   }
 }

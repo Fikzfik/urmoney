@@ -101,6 +101,20 @@ class BookNotifier extends Notifier<BookState> {
     state = state.copyWith(activeBook: book);
   }
 
+  Future<void> updateBook(String id, String name, {String? icon}) async {
+    try {
+      final client = ref.read(supabaseClientProvider);
+      await client.from('books').update({
+        'name': name,
+        if (icon != null) 'icon': icon,
+      }).eq('id', id);
+
+      await fetchBooks();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
   Future<void> deleteBook(String id) async {
     try {
       final client = ref.read(supabaseClientProvider);

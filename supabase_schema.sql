@@ -82,9 +82,15 @@ create table if not exists wallets (
     user_id uuid references auth.users(id) on delete cascade not null,
     book_id uuid references books(id) on delete cascade,
     name text not null,
-    type text not null, -- 'ewallet', 'bank', 'cash'
+    type text not null, -- 'ewallet', 'bankmobile', 'digitalbank', 'cash'
     balance numeric not null default 0,
     icon text,
+    -- New features for specific types
+    tax_rate numeric, -- for bankmobile
+    tax_day int, -- for bankmobile (day of month)
+    interest_rate numeric, -- for digitalbank
+    payout_schedule text, -- 'daily', 'monthly' for digitalbank
+    payout_day int, -- for digitalbank monthly
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
     deleted_at timestamp with time zone

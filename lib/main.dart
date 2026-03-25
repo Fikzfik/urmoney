@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_colors.dart';
 
@@ -17,6 +18,9 @@ void main() async {
     url: dotenv.env['NEXT_PUBLIC_SUPABASE_URL']!,
     anonKey: dotenv.env['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY']!,
   );
+
+  // Initialize Date Formatting for Indonesian Locale
+  await initializeDateFormatting('id_ID', null);
 
   runApp(const ProviderScope(child: MyApp()));
 }

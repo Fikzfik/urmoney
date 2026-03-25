@@ -7,19 +7,23 @@ import 'package:urmoney/features/transactions/data/models/transfer_model.dart';
 class TransactionState {
   final List<TransactionModel> transactions;
   final bool isLoading;
+  final bool hasFetched;
 
   TransactionState({
     this.transactions = const [],
     this.isLoading = false,
+    this.hasFetched = false,
   });
 
   TransactionState copyWith({
     List<TransactionModel>? transactions,
     bool? isLoading,
+    bool? hasFetched,
   }) {
     return TransactionState(
       transactions: transactions ?? this.transactions,
       isLoading: isLoading ?? this.isLoading,
+      hasFetched: hasFetched ?? this.hasFetched,
     );
   }
 }
@@ -50,10 +54,10 @@ class TransactionNotifier extends Notifier<TransactionState> {
 
       final List<dynamic> data = await query.order('date', ascending: false);
       final transactions = data.map((json) => TransactionModel.fromJson(json)).toList();
-      state = state.copyWith(transactions: transactions, isLoading: false);
+      state = state.copyWith(transactions: transactions, isLoading: false, hasFetched: true);
     } catch (e) {
       print('Error fetching transactions: $e');
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isLoading: false, hasFetched: true);
     }
   }
 
@@ -68,6 +72,20 @@ class TransactionNotifier extends Notifier<TransactionState> {
       }
     } catch (e) {
       print('Error adding transaction: $e');
+    }
+  }
+
+  Future<void> updateTransaction(TransactionModel transaction) async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      await supabase.from('transactions').update(transaction.toJson()).eq('id', transaction.id);
+      
+      final activeBook = ref.read(bookProvider).activeBook;
+      if (activeBook != null) {
+        await fetchTransactions(activeBook.id);
+      }
+    } catch (e) {
+      print('Error updating transaction: $e');
     }
   }
 

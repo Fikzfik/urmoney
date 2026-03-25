@@ -45,12 +45,20 @@ class BookManagementScreen extends ConsumerWidget {
                       ),
                     ),
                     subtitle: isActive ? const Text('Active Book', style: TextStyle(color: AppColors.primary, fontSize: 12)) : null,
-                    trailing: bookState.books.length > 1
-                        ? IconButton(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                          onPressed: () => _showEditBookDialog(context, ref, book),
+                        ),
+                        if (bookState.books.length > 1)
+                          IconButton(
                             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                             onPressed: () => _confirmDelete(context, ref, book),
-                          )
-                        : null,
+                          ),
+                      ],
+                    ),
                     onTap: () {
                       ref.read(bookProvider.notifier).setActiveBook(book);
                       Navigator.pop(context);
@@ -81,6 +89,33 @@ class BookManagementScreen extends ConsumerWidget {
               Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditBookDialog(BuildContext context, WidgetRef ref, dynamic book) {
+    final ctrl = TextEditingController(text: book.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Book'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: 'Enter book name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              if (ctrl.text.isNotEmpty) {
+                ref.read(bookProvider.notifier).updateBook(book.id, ctrl.text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),

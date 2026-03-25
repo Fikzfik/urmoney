@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:urmoney/features/dashboard/presentation/widgets/background_pattern.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
+import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
+import 'package:urmoney/features/wallets/presentation/screens/add_edit_wallet_screen.dart';
 
 class WalletsTab extends ConsumerWidget {
   const WalletsTab({super.key});
@@ -143,11 +145,44 @@ class WalletsTab extends ConsumerWidget {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(w.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                          Text(w.type, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                                          Text(_formatType(w.type), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                                         ],
                                       ),
                                     ),
                                     Text('Rp ${w.balance.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
+                                    const SizedBox(width: 8),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'edit') {
+                                          _showEditWalletDialog(context, ref, w);
+                                        } else if (value == 'delete') {
+                                          _confirmDeleteWallet(context, ref, w);
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
+                                              SizedBox(width: 8),
+                                              Text('Edit'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                                              SizedBox(width: 8),
+                                              Text('Hapus', style: TextStyle(color: Colors.redAccent)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+                                    ),
                                   ],
                                 ),
                               );
@@ -164,6 +199,21 @@ class WalletsTab extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  String _formatType(String type) {
+    switch (type) {
+      case 'bankmobile':
+        return 'Bank Mobile';
+      case 'digitalbank':
+        return 'Digital Bank';
+      case 'ewallet':
+        return 'e-Wallet';
+      case 'cash':
+        return 'Tunai';
+      default:
+        return type;
+    }
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -229,69 +279,33 @@ class WalletsTab extends ConsumerWidget {
   }
 
   void _showAddWalletDialog(BuildContext context, WidgetRef ref) {
-    final nameCtrl = TextEditingController();
-    final typeCtrl = TextEditingController(text: 'Bank');
-    final balCtrl = TextEditingController(text: '0');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddEditWalletScreen()),
+    );
+  }
 
+  void _showEditWalletDialog(BuildContext context, WidgetRef ref, WalletModel wallet) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AddEditWalletScreen(wallet: wallet)),
+    );
+  }
+
+  void _confirmDeleteWallet(BuildContext context, WidgetRef ref, WalletModel wallet) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tambah Dompet Baru', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: InputDecoration(
-                hintText: 'Nama Dompet (BCA, Gopay...)',
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: typeCtrl,
-              decoration: InputDecoration(
-                hintText: 'Tipe (Bank, e-Wallet, Tunai)',
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: balCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Saldo Awal (Rp)',
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-          ],
-        ),
+        title: const Text('Hapus Dompet?'),
+        content: Text('Apakah Anda yakin ingin menghapus "${wallet.name}"? Semua transaksi di dompet ini akan terpengaruh.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
-              if (nameCtrl.text.trim().isNotEmpty) {
-                ref.read(walletProvider.notifier).addWallet(
-                  nameCtrl.text.trim(),
-                  typeCtrl.text.trim(),
-                  double.tryParse(balCtrl.text) ?? 0.0,
-                );
-                Navigator.pop(ctx);
-              }
+              ref.read(walletProvider.notifier).deleteWallet(wallet.id);
+              Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Simpan'),
+            child: const Text('Hapus', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
