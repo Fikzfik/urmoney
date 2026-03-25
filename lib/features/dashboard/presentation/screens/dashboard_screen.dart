@@ -18,11 +18,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _tabIndex = 0;
 
-  int get _navIndex {
-    if (_tabIndex >= 2) return _tabIndex + 1;
-    return _tabIndex;
-  }
-
   final List<Widget> _pages = const [
     HomeTab(),
     WalletsTab(),
@@ -30,76 +25,138 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     SettingsTab(),
   ];
 
+  void _openAddTransaction() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const AddTransactionBottomSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true, // Allow body to expand behind the floating navbar
       body: IndexedStack(
         index: _tabIndex,
         children: _pages,
       ),
-      floatingActionButton: _tabIndex != 3 // Hide on Settings
+      floatingActionButton: _tabIndex != 3
           ? FloatingActionButton(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => const AddTransactionBottomSheet(),
-                );
-              },
-              backgroundColor: AppColors.primary,
+              onPressed: _openAddTransaction,
+              backgroundColor: AppColors.accent,
               foregroundColor: Colors.white,
               elevation: 4,
-              child: const Icon(Icons.add, size: 28),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              child: const Icon(Icons.add_rounded, size: 30),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: Container(
+      bottomNavigationBar: _buildNavBar(),
+    );
+  }
+
+  Widget _buildNavBar() {
+    final items = [
+      {'icon': Icons.home_outlined, 'activeIcon': Icons.home_rounded, 'label': 'Home'},
+      {'icon': Icons.account_balance_wallet_outlined, 'activeIcon': Icons.account_balance_wallet_rounded, 'label': 'Dompet'},
+      {'icon': Icons.qr_code_scanner_rounded, 'activeIcon': Icons.qr_code_scanner_rounded, 'label': 'Scan'},
+      {'icon': Icons.bar_chart_outlined, 'activeIcon': Icons.bar_chart_rounded, 'label': 'Analitik'},
+      {'icon': Icons.person_outline_rounded, 'activeIcon': Icons.person_rounded, 'label': 'Profil'},
+    ];
+
+    return Container(
+      height: 90, // Fixed height for consistency
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      child: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            )
-          ]
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _navIndex,
-          onTap: (index) {
-            if (index == 2) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()),
-              );
-            } else {
-              setState(() => _tabIndex = index > 2 ? index - 1 : index);
-            }
-          },
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          items: [
-            const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-            const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'Wallets'),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-              ),
-              label: 'Scan AI',
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            const BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analytics'),
-            const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Settings'),
           ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(items.length, (i) {
+            final item = items[i];
+            int? tabIdx;
+            if (i == 0) tabIdx = 0;
+            else if (i == 1) tabIdx = 1;
+            else if (i == 2) tabIdx = null; // scanner
+            else if (i == 3) tabIdx = 2;
+            else tabIdx = 3;
+
+            final isActive = tabIdx != null && _tabIndex == tabIdx;
+            final isCenter = i == 2;
+
+            return Expanded(
+              child: InkWell(
+                onTap: () {
+                  if (i == 2) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()));
+                  } else {
+                    setState(() => _tabIndex = tabIdx!);
+                  }
+                },
+                borderRadius: BorderRadius.circular(28),
+                child: isCenter
+                    ? Center(
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(item['icon'] as IconData, color: Colors.white, size: 24),
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isActive ? item['activeIcon'] as IconData : item['icon'] as IconData,
+                            color: isActive ? AppColors.primary : AppColors.textSecondary.withOpacity(0.5),
+                            size: 24,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item['label'] as String,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isActive ? AppColors.primary : AppColors.textSecondary.withOpacity(0.7),
+                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          if (isActive)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              width: 4,
+                              height: 4,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            );
+          }),
         ),
       ),
     );

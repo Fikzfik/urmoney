@@ -489,40 +489,50 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
   Widget _buildWalletDropdown(String title, WalletModel value,
       List<WalletModel> wallets, ValueChanged<WalletModel?> onChanged) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.account_balance_wallet, color: Colors.grey.shade400),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<WalletModel>(
-                    value: value,
-                    isExpanded: true,
-                    isDense: true,
-                    icon: const Icon(Icons.arrow_drop_down,
-                        color: AppColors.primary),
-                    items: wallets
-                        .map((w) => DropdownMenuItem(
-                            value: w,
-                            child: Text(w.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold))))
-                        .toList(),
-                    onChanged: onChanged,
-                  ),
+          Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<WalletModel>(
+              value: value,
+              isExpanded: true,
+              isDense: true,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+              items: wallets.map((w) => DropdownMenuItem(
+                value: w,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.account_balance_wallet_rounded, size: 14, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(w.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text('Rp ${w.balance.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              )).toList(),
+              onChanged: onChanged,
             ),
-          )
+          ),
         ],
       ),
     );
@@ -861,8 +871,8 @@ class _WalletPicker extends ConsumerWidget {
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 4),
                         leading: Container(
-                          width: 40,
-                          height: 40,
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
                             color: themeColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
@@ -873,6 +883,10 @@ class _WalletPicker extends ConsumerWidget {
                         title: Text(w.name,
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          'Rp ${w.balance.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+                          style: TextStyle(color: themeColor, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
                         trailing: selectedWallet?.id == w.id
                             ? Icon(Icons.check_circle_rounded,
                                 color: themeColor)

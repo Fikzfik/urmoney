@@ -15,8 +15,7 @@ class AddEditWalletScreen extends ConsumerStatefulWidget {
 class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
   late String selectedType;
   late TextEditingController nameCtrl;
-  late TextEditingController balCtrl;
-  late TextEditingController taxRateCtrl;
+  late TextEditingController taxAmountCtrl;
   late TextEditingController taxDayCtrl;
   late TextEditingController interestRateCtrl;
   late TextEditingController payoutDayCtrl;
@@ -28,8 +27,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
     final w = widget.wallet;
     selectedType = w?.type ?? 'ewallet';
     nameCtrl = TextEditingController(text: w?.name ?? '');
-    balCtrl = TextEditingController(text: w?.balance.toStringAsFixed(0) ?? '0');
-    taxRateCtrl = TextEditingController(text: w?.taxRate?.toString() ?? '');
+    taxAmountCtrl = TextEditingController(text: w?.taxRate?.toStringAsFixed(0) ?? '');
     taxDayCtrl = TextEditingController(text: w?.taxDay?.toString() ?? '');
     interestRateCtrl = TextEditingController(text: w?.interestRate?.toString() ?? '');
     payoutDayCtrl = TextEditingController(text: w?.payoutDay?.toString() ?? '');
@@ -39,8 +37,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
   @override
   void dispose() {
     nameCtrl.dispose();
-    balCtrl.dispose();
-    taxRateCtrl.dispose();
+    taxAmountCtrl.dispose();
     taxDayCtrl.dispose();
     interestRateCtrl.dispose();
     payoutDayCtrl.dispose();
@@ -49,14 +46,13 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
 
   void _save() {
     if (nameCtrl.text.trim().isEmpty) return;
-
     final notifier = ref.read(walletProvider.notifier);
     if (widget.wallet == null) {
       notifier.addWallet(
         nameCtrl.text.trim(),
         selectedType,
-        double.tryParse(balCtrl.text) ?? 0.0,
-        taxRate: selectedType == 'bankmobile' ? double.tryParse(taxRateCtrl.text) : null,
+        0.0, // Balance starts at 0 — use transactions to fund
+        taxRate: selectedType == 'bankmobile' ? double.tryParse(taxAmountCtrl.text) : null,
         taxDay: selectedType == 'bankmobile' ? int.tryParse(taxDayCtrl.text) : null,
         interestRate: selectedType == 'digitalbank' ? double.tryParse(interestRateCtrl.text) : null,
         payoutSchedule: selectedType == 'digitalbank' ? payoutSchedule : null,
@@ -67,8 +63,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
         widget.wallet!.id,
         name: nameCtrl.text.trim(),
         type: selectedType,
-        balance: double.tryParse(balCtrl.text) ?? 0.0,
-        taxRate: selectedType == 'bankmobile' ? double.tryParse(taxRateCtrl.text) : null,
+        taxRate: selectedType == 'bankmobile' ? double.tryParse(taxAmountCtrl.text) : null,
         taxDay: selectedType == 'bankmobile' ? int.tryParse(taxDayCtrl.text) : null,
         interestRate: selectedType == 'digitalbank' ? double.tryParse(interestRateCtrl.text) : null,
         payoutSchedule: selectedType == 'digitalbank' ? payoutSchedule : null,
@@ -78,162 +73,290 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
     Navigator.pop(context);
   }
 
+  static const _types = [
+    {'key': 'bankmobile', 'name': 'Bank Mobile', 'icon': Icons.account_balance_rounded},
+    {'key': 'digitalbank', 'name': 'Digital Bank', 'icon': Icons.phonelink_ring_rounded},
+    {'key': 'ewallet', 'name': 'e-Wallet', 'icon': Icons.wallet_rounded},
+    {'key': 'cash', 'name': 'Tunai', 'icon': Icons.money_rounded},
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final types = {
-      'bankmobile': {'name': 'Bank Mobile', 'icon': Icons.account_balance, 'color': Colors.blue},
-      'digitalbank': {'name': 'Digital Bank', 'icon': Icons.phonelink_ring_rounded, 'color': Colors.purple},
-      'ewallet': {'name': 'e-Wallet', 'icon': Icons.wallet_rounded, 'color': Colors.orange},
-      'cash': {'name': 'Tunai', 'icon': Icons.money_rounded, 'color': Colors.green},
-    };
+    final gradColors = AppColors.walletGradients[selectedType] ?? [AppColors.primary, AppColors.accent];
+    final typeData = _types.firstWhere((t) => t['key'] == selectedType);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(widget.wallet == null ? 'Tambah Dompet' : 'Edit Dompet',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Pilih Tipe Dompet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: types.entries.map((e) {
-                final isSelected = selectedType == e.key;
-                final data = e.value as Map<String, dynamic>;
-                return InkWell(
-                  onTap: () => setState(() => selectedType = e.key),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: (MediaQuery.of(context).size.width - 60) / 2,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected ? data['color'].withOpacity(0.1) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isSelected ? data['color'] : Colors.transparent, width: 2),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+      body: Column(
+        children: [
+          // ─── Premium gradient header ─────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: gradColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 36),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Text(
+                            widget.wallet == null ? 'Tambah Dompet' : 'Edit Dompet',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(width: 48),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    Icon(typeData['icon'] as IconData, color: Colors.white.withOpacity(0.9), size: 48),
+                    const SizedBox(height: 8),
+                    Text(
+                      nameCtrl.text.isEmpty ? 'Dompet Baru' : nameCtrl.text,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                      child: Text(typeData['name'] as String, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    ),
+                    if (widget.wallet == null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: Colors.white70, size: 14),
+                            SizedBox(width: 6),
+                            Text('Saldo diisi lewat transaksi Pemasukan', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                          ],
+                        ),
+                      )
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ─── Body ────────────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Type selector (floating pill selector)
+                  Transform.translate(
+                    offset: const Offset(0, -20),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 6))],
+                      ),
+                      child: Row(
+                        children: _types.map((t) {
+                          final isSelected = selectedType == t['key'];
+                          final tGrad = AppColors.walletGradients[t['key']] ?? [AppColors.primary, AppColors.accent];
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => selectedType = t['key'] as String),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  gradient: isSelected ? LinearGradient(colors: tGrad) : null,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(t['icon'] as IconData, color: isSelected ? Colors.white : Colors.grey.shade400, size: 22),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      (t['name'] as String).split(' ').first,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isSelected ? Colors.white : Colors.grey.shade500,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(data['icon'], color: isSelected ? data['color'] : AppColors.textSecondary, size: 32),
-                        const SizedBox(height: 8),
-                        Text(data['name'],
-                            style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? data['color'] : AppColors.textPrimary)),
+                        _sectionTitle('Nama Dompet'),
+                        const SizedBox(height: 10),
+                        _buildField('Nama Dompet', nameCtrl, Icons.edit_note_rounded, gradColors.first,
+                            onChanged: (_) => setState(() {})),
+
+                        if (selectedType == 'bankmobile') ...[
+                          const SizedBox(height: 24),
+                          _sectionTitle('Pengaturan Pajak', icon: Icons.receipt_long_rounded, color: gradColors.first),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: gradColors.first.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: gradColors.first.withOpacity(0.15)),
+                            ),
+                            child: Column(
+                              children: [
+                                _buildField('Jumlah Pajak (Rp)', taxAmountCtrl, Icons.money_off_rounded, gradColors.first,
+                                    keyboardType: TextInputType.number),
+                                const SizedBox(height: 12),
+                                _buildField('Tgl Pemotongan (1-31)', taxDayCtrl, Icons.calendar_month_rounded, gradColors.first,
+                                    keyboardType: TextInputType.number),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        if (selectedType == 'digitalbank') ...[
+                          const SizedBox(height: 24),
+                          _sectionTitle('Pengaturan Deposito', icon: Icons.trending_up_rounded, color: gradColors.first),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: gradColors.first.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: gradColors.first.withOpacity(0.15)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildField('Bunga / Deposito (%)', interestRateCtrl, Icons.percent_rounded, gradColors.first,
+                                    keyboardType: TextInputType.number),
+                                const SizedBox(height: 16),
+                                Text('Jadwal Pencairan', style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(child: _radioCard('daily', 'Harian', Icons.wb_sunny_rounded, gradColors.first)),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: _radioCard('monthly', 'Bulanan', Icons.calendar_month_rounded, gradColors.first)),
+                                  ],
+                                ),
+                                if (payoutSchedule == 'monthly') ...[
+                                  const SizedBox(height: 12),
+                                  _buildField('Tgl Pencairan (1-31)', payoutDayCtrl, Icons.calendar_today_rounded, gradColors.first,
+                                      keyboardType: TextInputType.number),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 36),
+                        Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: gradColors),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: gradColors.last.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _save,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: const Text('SIMPAN DOMPET',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.2, color: Colors.white)),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
-            _buildField('Nama Dompet', nameCtrl, Icons.edit_note_rounded),
-            const SizedBox(height: 16),
-            _buildField('Saldo (Rp)', balCtrl, Icons.payments_rounded, keyboardType: TextInputType.number),
-
-            if (selectedType == 'bankmobile') ...[
-              const SizedBox(height: 24),
-              const Text('Pengaturan Pajak', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: _buildField('Pajak (%)', taxRateCtrl, Icons.percent_rounded, keyboardType: TextInputType.number)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildField('Tgl Potongan (1-31)', taxDayCtrl, Icons.calendar_month_rounded, keyboardType: TextInputType.number)),
                 ],
               ),
-            ],
-
-            if (selectedType == 'digitalbank') ...[
-              const SizedBox(height: 24),
-              const Text('Pengaturan Deposito/Bunga', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 16),
-              _buildField('Bunga (%)', interestRateCtrl, Icons.trending_up_rounded, keyboardType: TextInputType.number),
-              const SizedBox(height: 16),
-              const Text('Jadwal Pencairan', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-              Row(
-                children: [
-                  _radioTile('daily', 'Harian'),
-                  const SizedBox(width: 16),
-                  _radioTile('monthly', 'Bulanan'),
-                ],
-              ),
-              if (payoutSchedule == 'monthly') ...[
-                const SizedBox(height: 8),
-                _buildField('Tgl Pencairan (1-31)', payoutDayCtrl, Icons.calendar_today_rounded, keyboardType: TextInputType.number),
-              ],
-            ],
-
-            const SizedBox(height: 48),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
-                  shadowColor: AppColors.primary.withOpacity(0.5),
-                ),
-                child: const Text('SIMPAN DOMPET', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.2)),
-              ),
             ),
-            const SizedBox(height: 24),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, IconData icon, {TextInputType? keyboardType}) {
+  Widget _sectionTitle(String title, {IconData? icon, Color? color}) {
+    return Row(
+      children: [
+        if (icon != null) ...[Icon(icon, size: 16, color: color ?? AppColors.primary), const SizedBox(width: 6)],
+        Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color ?? AppColors.textPrimary)),
+      ],
+    );
+  }
+
+  Widget _buildField(String label, TextEditingController ctrl, IconData icon, Color color,
+      {TextInputType? keyboardType, ValueChanged<String>? onChanged}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: TextField(
         controller: ctrl,
         keyboardType: keyboardType,
+        onChanged: onChanged,
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: AppColors.primary),
+          prefixIcon: Icon(icon, color: color, size: 20),
           hintText: label,
           labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          labelStyle: TextStyle(color: color.withOpacity(0.7), fontSize: 13),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
           filled: true,
           fillColor: Colors.transparent,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
   }
 
-  Widget _radioTile(String value, String label) {
+  Widget _radioCard(String value, String label, IconData icon, Color color) {
     final isSelected = payoutSchedule == value;
-    return InkWell(
+    return GestureDetector(
       onTap: () => setState(() => payoutSchedule = value),
-      child: Row(
-        children: [
-          Radio<String>(
-            value: value,
-            groupValue: payoutSchedule,
-            onChanged: (v) => setState(() => payoutSchedule = v!),
-            activeColor: AppColors.primary,
-          ),
-          Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        ],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? color : Colors.grey.shade200),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.grey.shade400),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.grey.shade600, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
+          ],
+        ),
       ),
     );
   }
