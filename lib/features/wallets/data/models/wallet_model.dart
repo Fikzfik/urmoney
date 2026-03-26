@@ -11,6 +11,8 @@ class WalletModel {
   final double? interestRate;
   final String? payoutSchedule;
   final int? payoutDay;
+  final DateTime? lastInterestPayout;
+  final DateTime createdAt;
 
   WalletModel({
     required this.id,
@@ -25,6 +27,8 @@ class WalletModel {
     this.interestRate,
     this.payoutSchedule,
     this.payoutDay,
+    this.lastInterestPayout,
+    required this.createdAt,
   });
 
   factory WalletModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,8 @@ class WalletModel {
       interestRate: json['interest_rate'] != null ? (json['interest_rate'] as num).toDouble() : null,
       payoutSchedule: json['payout_schedule'],
       payoutDay: json['payout_day'],
+      lastInterestPayout: json['last_interest_payout'] != null ? DateTime.parse(json['last_interest_payout']) : null,
+      createdAt: DateTime.parse(json['created_at']),
     );
   }
 
@@ -56,6 +62,7 @@ class WalletModel {
       'interest_rate': interestRate,
       'payout_schedule': payoutSchedule,
       'payout_day': payoutDay,
+      'last_interest_payout': lastInterestPayout?.toIso8601String(),
     };
   }
 }

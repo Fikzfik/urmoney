@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS public.recurring_transactions CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user_setup() CASCADE;
 DROP FUNCTION IF EXISTS public.set_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS public.recalculate_wallet_balance() CASCADE;
 
 
 -- Enable UUID extension
@@ -85,12 +86,12 @@ create table if not exists wallets (
     type text not null, -- 'ewallet', 'bankmobile', 'digitalbank', 'cash'
     balance numeric not null default 0,
     icon text,
-    -- New features for specific types
-    tax_rate numeric, -- for bankmobile
-    tax_day int, -- for bankmobile (day of month)
-    interest_rate numeric, -- for digitalbank
-    payout_schedule text, -- 'daily', 'monthly' for digitalbank
-    payout_day int, -- for digitalbank monthly
+    tax_rate numeric, 
+    tax_day int, 
+    interest_rate numeric, 
+    payout_schedule text, 
+    payout_day int, 
+    last_interest_payout timestamp with time zone,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
     deleted_at timestamp with time zone
@@ -157,9 +158,10 @@ create table if not exists transaction_attachments (
 
 create table if not exists transfer_transactions (
     id uuid primary key default uuid_generate_v4(),
+    user_id uuid references auth.users(id) on delete cascade not null,
     book_id uuid references books(id) on delete cascade,
-    from_wallet_id uuid references wallets(id) not null,
-    to_wallet_id uuid references wallets(id) not null,
+    from_wallet_id uuid references wallets(id) on delete cascade not null,
+    to_wallet_id uuid references wallets(id) on delete cascade not null,
     amount numeric not null,
     date timestamp with time zone not null,
     note text,
@@ -171,7 +173,7 @@ create table if not exists transfer_transactions (
 create table if not exists recurring_transactions (
     id uuid primary key default uuid_generate_v4(),
     user_id uuid references auth.users(id) on delete cascade not null,
-    wallet_id uuid references wallets(id) not null,
+    wallet_id uuid references wallets(id) on delete cascade not null,
     category_id uuid references categories(id) not null,
     amount numeric not null,
     type text not null,
@@ -233,10 +235,7 @@ create policy "Users can manage transaction attachments" on transaction_attachme
 );
 
 alter table transfer_transactions enable row level security;
-create policy "Users can manage their transfers" on transfer_transactions for all using (
-    exists (select 1 from wallets where wallets.id = transfer_transactions.from_wallet_id and wallets.user_id = auth.uid()) 
-    or exists (select 1 from wallets where wallets.id = transfer_transactions.to_wallet_id and wallets.user_id = auth.uid())
-);
+create policy "Users can manage their transfers" on transfer_transactions for all using (auth.uid() = user_id);
 
 alter table recurring_transactions enable row level security;
 create policy "Users can manage their recurring transactions" on recurring_transactions for all using (auth.uid() = user_id);
@@ -245,7 +244,7 @@ alter table assets_summary enable row level security;
 create policy "Users can view their own assets summary" on assets_summary for select using (auth.uid() = user_id);
 
 -- =========================================
--- 4. TRIGGERS
+-- 4. FUNCTIONS & TRIGGERS
 -- =========================================
 
 create or replace function set_updated_at()
@@ -256,6 +255,64 @@ begin
 end;
 $$ language plpgsql;
 
+-- Trigger to calculate wallet balance
+CREATE OR REPLACE FUNCTION public.recalculate_wallet_balance()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    target_wallet_id uuid;
+BEGIN
+    IF TG_TABLE_NAME = 'transactions' THEN
+        IF TG_OP = 'DELETE' THEN target_wallet_id := OLD.wallet_id;
+        ELSE target_wallet_id := NEW.wallet_id; END IF;
+    ELSIF TG_TABLE_NAME = 'transfer_transactions' THEN
+        IF TG_OP = 'DELETE' THEN target_wallet_id := OLD.from_wallet_id;
+        ELSE target_wallet_id := NEW.from_wallet_id; END IF;
+    END IF;
+
+    -- Update relevant wallets
+    IF TG_TABLE_NAME = 'transactions' THEN
+        UPDATE public.wallets
+        SET balance = 
+            COALESCE((SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) FROM public.transactions WHERE wallet_id = target_wallet_id AND deleted_at IS NULL), 0) +
+            COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE to_wallet_id = target_wallet_id AND deleted_at IS NULL), 0) -
+            COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE from_wallet_id = target_wallet_id AND deleted_at IS NULL), 0)
+        WHERE id = target_wallet_id;
+        
+        IF TG_OP = 'UPDATE' AND OLD.wallet_id IS DISTINCT FROM NEW.wallet_id THEN
+            UPDATE public.wallets
+            SET balance = 
+                COALESCE((SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) FROM public.transactions WHERE wallet_id = OLD.wallet_id AND deleted_at IS NULL), 0) +
+                COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE to_wallet_id = OLD.wallet_id AND deleted_at IS NULL), 0) -
+                COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE from_wallet_id = OLD.wallet_id AND deleted_at IS NULL), 0)
+            WHERE id = OLD.wallet_id;
+        END IF;
+    ELSIF TG_TABLE_NAME = 'transfer_transactions' THEN
+        DECLARE
+            w_from uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.from_wallet_id ELSE NEW.from_wallet_id END;
+            w_to uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.to_wallet_id ELSE NEW.to_wallet_id END;
+        BEGIN
+            UPDATE public.wallets
+            SET balance = 
+                COALESCE((SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) FROM public.transactions WHERE wallet_id = w_from AND deleted_at IS NULL), 0) +
+                COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE to_wallet_id = w_from AND deleted_at IS NULL), 0) -
+                COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE from_wallet_id = w_from AND deleted_at IS NULL), 0)
+            WHERE id = w_from;
+
+            UPDATE public.wallets
+            SET balance = 
+                COALESCE((SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) FROM public.transactions WHERE wallet_id = w_to AND deleted_at IS NULL), 0) +
+                COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE to_wallet_id = w_to AND deleted_at IS NULL), 0) -
+                COALESCE((SELECT SUM(amount) FROM public.transfer_transactions WHERE from_wallet_id = w_to AND deleted_at IS NULL), 0)
+            WHERE id = w_to;
+        END;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN RETURN OLD;
+    ELSE RETURN NEW; END IF;
+END;
+$$;
+
+-- Apply updated_at to all tables
 create trigger reminders_updated_at before update on reminders for each row execute procedure set_updated_at();
 create trigger books_updated_at before update on books for each row execute procedure set_updated_at();
 create trigger wallets_updated_at before update on wallets for each row execute procedure set_updated_at();
@@ -267,61 +324,14 @@ create trigger transfer_transactions_updated_at before update on transfer_transa
 create trigger recurring_transactions_updated_at before update on recurring_transactions for each row execute procedure set_updated_at();
 create trigger assets_summary_updated_at before update on assets_summary for each row execute procedure set_updated_at();
 
--- =========================================
--- AUTO-UPDATE WALLET BALANCE
--- =========================================
-
-CREATE OR REPLACE FUNCTION public.recalculate_wallet_balance()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE
-    target_wallet_id uuid;
-BEGIN
-    -- Determine which wallet(s) to update
-    IF TG_OP = 'DELETE' THEN
-        target_wallet_id := OLD.wallet_id;
-    ELSE
-        target_wallet_id := NEW.wallet_id;
-    END IF;
-
-    -- Recalculate balance from all transactions for that wallet
-    UPDATE public.wallets
-    SET balance = COALESCE((
-        SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END)
-        FROM public.transactions
-        WHERE wallet_id = target_wallet_id
-          AND deleted_at IS NULL
-    ), 0)
-    WHERE id = target_wallet_id;
-
-    -- If it was an UPDATE and the wallet_id changed, recalculate old wallet too
-    IF TG_OP = 'UPDATE' AND OLD.wallet_id IS DISTINCT FROM NEW.wallet_id THEN
-        UPDATE public.wallets
-        SET balance = COALESCE((
-            SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END)
-            FROM public.transactions
-            WHERE wallet_id = OLD.wallet_id
-              AND deleted_at IS NULL
-        ), 0)
-        WHERE id = OLD.wallet_id;
-    END IF;
-
-    IF TG_OP = 'DELETE' THEN RETURN OLD;
-    ELSE RETURN NEW;
-    END IF;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS sync_wallet_balance_on_transaction ON public.transactions;
-CREATE TRIGGER sync_wallet_balance_on_transaction
-AFTER INSERT OR UPDATE OR DELETE ON public.transactions
-FOR EACH ROW EXECUTE PROCEDURE public.recalculate_wallet_balance();
-
+-- Apply wallet balance sync
+create trigger sync_wallet_balance_on_transaction after insert or update or delete on transactions for each row execute procedure recalculate_wallet_balance();
+create trigger sync_wallet_balance_on_transfer after insert or update or delete on transfer_transactions for each row execute procedure recalculate_wallet_balance();
 
 -- =========================================
 -- 5. INITIAL SETUP TRIGGER
 -- =========================================
 
--- Function to handle new user setup (Dompet Utama + Tunai Wallet + Default Categories + Settings)
 CREATE OR REPLACE FUNCTION public.handle_new_user_setup()
 RETURNS TRIGGER 
 LANGUAGE plpgsql
@@ -331,49 +341,22 @@ DECLARE
     default_book_id UUID;
     cat_campur_id UUID;
 BEGIN
-    -- 0. Create User Settings & Assets Summary
     INSERT INTO public.user_settings (user_id) VALUES (new.id);
     INSERT INTO public.assets_summary (user_id, total_balance) VALUES (new.id, 0);
 
-    -- 1. Create Default Book (Dompet Utama)
-    INSERT INTO public.books (user_id, name, icon)
-    VALUES (new.id, 'Dompet Utama', '57409') -- Icons.account_balance_wallet
-    RETURNING id INTO default_book_id;
+    INSERT INTO public.books (user_id, name, icon) VALUES (new.id, 'Dompet Utama', '57409') RETURNING id INTO default_book_id;
+    INSERT INTO public.wallets (user_id, book_id, name, type, balance, icon) VALUES (new.id, default_book_id, 'Tunai', 'cash', 0, '61263');
 
-    -- 2. Create Default Wallet (Tunai)
-    INSERT INTO public.wallets (user_id, book_id, name, type, balance, icon)
-    VALUES (new.id, default_book_id, 'Tunai', 'cash', 0, '61263'); -- Icons.money
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) VALUES (new.id, default_book_id, 'Campur', 'expense', '57674', '0xFF448AFF', true) RETURNING id INTO cat_campur_id;
 
-    -- 3. Create "Campur" Category (Rekomendasi Expense)
-    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default)
-    VALUES (new.id, default_book_id, 'Campur', 'expense', '57674', '0xFF448AFF', true) -- Icons.category
-    RETURNING id INTO cat_campur_id;
+    INSERT INTO public.category_items (category_id, name, icon) VALUES 
+        (cat_campur_id, 'Bensin', '58178'), (cat_campur_id, 'Makan', '57912'),
+        (cat_campur_id, 'Jajan', '58356'), (cat_campur_id, 'Parkir', '58191');
 
-    -- 4. Create Category Items for "Campur"
-    INSERT INTO public.category_items (category_id, name, icon)
-    VALUES 
-        (cat_campur_id, 'Bensin', '58178'), -- Icons.local_gas_station
-        (cat_campur_id, 'Makan', '57912'), -- Icons.fastfood
-        (cat_campur_id, 'Jajan', '58356'), -- Icons.icecream
-        (cat_campur_id, 'Parkir', '58191'); -- Icons.local_parking
-
-    -- 5. Create default income category
-    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default)
-    VALUES (new.id, default_book_id, 'Gaji', 'income', '58509', '0xFF009688', true); -- Icons.monetization_on
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) VALUES (new.id, default_book_id, 'Gaji', 'income', '58509', '0xFF009688', true);
 
     RETURN new;
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Log error details if needed or just return new to allow registration
-        RETURN new;
 END;
 $$;
 
--- Cleanup existing trigger if exists
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
--- Create trigger on auth.users (Must match Supabase Auth event)
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user_setup();
-
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user_setup();

@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
 import 'package:urmoney/features/transactions/data/models/transaction_model.dart';
+import 'package:urmoney/features/transactions/data/models/transfer_model.dart';
 import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
 import 'package:urmoney/features/transactions/presentation/providers/transaction_provider.dart';
+import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
+import 'package:urmoney/features/transactions/presentation/screens/transaction_detail_screen.dart';
 import 'package:intl/intl.dart';
 
 class HomeTab extends ConsumerStatefulWidget {
@@ -43,6 +46,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final activeBook = ref.read(bookProvider).activeBook;
     if (activeBook != null) {
       ref.read(transactionProvider.notifier).fetchTransactions(activeBook.id, month: _selectedMonth);
+      // Check for interest payouts
+      ref.read(transactionProvider.notifier).checkAndApplyInterest();
     }
   }
 
@@ -359,13 +364,17 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
     }
 
-    final transactions = transState.transactions;
-    if (transactions.isEmpty) return _buildEmptyTransactions();
+    final List<dynamic> allMovements = [
+      ...transState.transactions,
+      ...transState.transfers,
+    ]..sort((a, b) => b.date.compareTo(a.date));
 
-    final grouped = <DateTime, List<TransactionModel>>{};
-    for (var t in transactions) {
-      final date = DateTime(t.date.year, t.date.month, t.date.day);
-      grouped.putIfAbsent(date, () => []).add(t);
+    if (allMovements.isEmpty) return _buildEmptyTransactions();
+
+    final grouped = <DateTime, List<dynamic>>{};
+    for (var m in allMovements) {
+      final date = DateTime(m.date.year, m.date.month, m.date.day);
+      grouped.putIfAbsent(date, () => []).add(m);
     }
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
@@ -376,7 +385,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       itemCount: sortedDates.length,
       itemBuilder: (context, i) {
         final date = sortedDates[i];
-        final dayTrans = grouped[date]!;
+        final dayMovements = grouped[date]!;
         final dayLabel = DateFormat('EEE, d/M', 'id_ID').format(date);
 
         return Column(
@@ -392,7 +401,11 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 ],
               ),
             ),
-            ...dayTrans.map((t) => _buildTransactionCard(context, t)),
+            ...dayMovements.map((m) {
+              if (m is TransactionModel) return _buildTransactionCard(context, m);
+              if (m is TransferModel) return _buildTransferCard(context, m);
+              return const SizedBox.shrink();
+            }),
           ],
         );
       },
@@ -401,6 +414,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 
   Widget _buildTransactionCard(BuildContext context, TransactionModel t) {
     final catState = ref.watch(categoryProvider);
+    final wallets = ref.watch(walletProvider).value ?? [];
+    final wallet = wallets.firstWhere((w) => w.id == t.walletId, orElse: () => WalletModel(id: '', userId: '', name: 'Wallet?', type: '', balance: 0, createdAt: DateTime.now()));
 
     IconData icon = Icons.help_outline;
     Color color = Colors.grey;
@@ -437,13 +452,21 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
-        onTap: () => _showEditTransactionDialog(context, ref, t),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (ctx) => TransactionDetailScreen(transaction: t))),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
           child: Icon(icon, color: color, size: 24),
         ),
-        title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        title: Row(
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+            Text(
+              wallet.name,
+              style: TextStyle(fontSize: 10, color: AppColors.primary.withOpacity(0.6), fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
         subtitle: Text(
           t.note?.isNotEmpty == true ? t.note! : (subLabel.isNotEmpty ? subLabel : 'Tanpa catatan'),
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
@@ -454,6 +477,40 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             fontWeight: FontWeight.bold,
             fontSize: 14,
             color: t.type == 'expense' ? AppColors.expense : AppColors.income,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransferCard(BuildContext context, TransferModel t) {
+    final wallets = ref.watch(walletProvider).value ?? [];
+    final from = wallets.firstWhere((w) => w.id == t.fromWalletId, orElse: () => WalletModel(id: '', userId: '', name: '?', type: '', balance: 0, createdAt: DateTime.now()));
+    final to = wallets.firstWhere((w) => w.id == t.toWalletId, orElse: () => WalletModel(id: '', userId: '', name: '?', type: '', balance: 0, createdAt: DateTime.now()));
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (ctx) => TransactionDetailScreen(transfer: t))),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+          child: const Icon(Icons.swap_horiz_rounded, color: Colors.blue, size: 24),
+        ),
+        title: const Text('Transfer Saldo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text(
+          '${from.name} → ${to.name}',
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+        ),
+        trailing: Text(
+          _formatCurrency(t.amount),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: AppColors.textPrimary,
           ),
         ),
       ),
@@ -636,96 +693,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   }
 
   // ─── DIALOGS ────────────────────────────────────────────────────────────────
-  void _showEditTransactionDialog(BuildContext context, WidgetRef ref, TransactionModel t) {
-    final noteCtrl = TextEditingController(text: t.note);
-    final amountCtrl = TextEditingController(text: t.amount.toStringAsFixed(0));
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Edit Transaksi', style: TextStyle(fontWeight: FontWeight.bold)),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              onPressed: () => _confirmDeleteTransaction(context, ref, t.id),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amountCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Jumlah (Rp)',
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                prefixText: 'Rp ',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: noteCtrl,
-              decoration: InputDecoration(
-                hintText: 'Catatan',
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
-            onPressed: () {
-              final newAmount = double.tryParse(amountCtrl.text) ?? t.amount;
-              final edited = TransactionModel(
-                id: t.id, userId: t.userId, bookId: t.bookId, walletId: t.walletId,
-                categoryId: t.categoryId, categoryItemId: t.categoryItemId,
-                amount: newAmount, type: t.type, note: noteCtrl.text.trim(),
-                date: t.date, createdAt: t.createdAt,
-              );
-              ref.read(transactionProvider.notifier).updateTransaction(edited);
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary, foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDeleteTransaction(BuildContext context, WidgetRef ref, String id) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Transaksi?'),
-        content: const Text('Apakah Anda yakin ingin menghapus transaksi ini secara permanen?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          TextButton(
-            onPressed: () {
-              ref.read(transactionProvider.notifier).deleteTransaction(id);
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: const Text('Hapus', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAddBookDialog(BuildContext context, WidgetRef ref) {
     final ctrl = TextEditingController();
     showDialog(

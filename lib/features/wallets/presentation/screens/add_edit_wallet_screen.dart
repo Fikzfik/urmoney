@@ -31,7 +31,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
     taxDayCtrl = TextEditingController(text: w?.taxDay?.toString() ?? '');
     interestRateCtrl = TextEditingController(text: w?.interestRate?.toString() ?? '');
     payoutDayCtrl = TextEditingController(text: w?.payoutDay?.toString() ?? '');
-    payoutSchedule = w?.payoutSchedule ?? 'daily';
+    payoutSchedule = w?.payoutSchedule ?? 'harian';
   }
 
   @override
@@ -56,7 +56,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
         taxDay: selectedType == 'bankmobile' ? int.tryParse(taxDayCtrl.text) : null,
         interestRate: selectedType == 'digitalbank' ? double.tryParse(interestRateCtrl.text) : null,
         payoutSchedule: selectedType == 'digitalbank' ? payoutSchedule : null,
-        payoutDay: selectedType == 'digitalbank' && payoutSchedule == 'monthly' ? int.tryParse(payoutDayCtrl.text) : null,
+        payoutDay: selectedType == 'digitalbank' && payoutSchedule == 'bulanan' ? int.tryParse(payoutDayCtrl.text) : null,
       );
     } else {
       notifier.updateWallet(
@@ -67,7 +67,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
         taxDay: selectedType == 'bankmobile' ? int.tryParse(taxDayCtrl.text) : null,
         interestRate: selectedType == 'digitalbank' ? double.tryParse(interestRateCtrl.text) : null,
         payoutSchedule: selectedType == 'digitalbank' ? payoutSchedule : null,
-        payoutDay: selectedType == 'digitalbank' && payoutSchedule == 'monthly' ? int.tryParse(payoutDayCtrl.text) : null,
+        payoutDay: selectedType == 'digitalbank' && payoutSchedule == 'bulanan' ? int.tryParse(payoutDayCtrl.text) : null,
       );
     }
     Navigator.pop(context);
@@ -255,12 +255,12 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    Expanded(child: _radioCard('daily', 'Harian', Icons.wb_sunny_rounded, gradColors.first)),
+                                    Expanded(child: _radioCard('harian', 'Harian', Icons.wb_sunny_rounded, gradColors.first)),
                                     const SizedBox(width: 12),
-                                    Expanded(child: _radioCard('monthly', 'Bulanan', Icons.calendar_month_rounded, gradColors.first)),
+                                    Expanded(child: _radioCard('bulanan', 'Bulanan', Icons.calendar_month_rounded, gradColors.first)),
                                   ],
                                 ),
-                                if (payoutSchedule == 'monthly') ...[
+                                if (payoutSchedule == 'bulanan') ...[
                                   const SizedBox(height: 12),
                                   _buildField('Tgl Pencairan (1-31)', payoutDayCtrl, Icons.calendar_today_rounded, gradColors.first,
                                       keyboardType: TextInputType.number),

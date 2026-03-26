@@ -438,7 +438,7 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
     return Column(
       children: [
         Expanded(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: walletsAsync.when(
               data: (wallets) {
@@ -712,12 +712,18 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    _formatAmount(widget.amount),
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: color),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        _formatAmount(widget.amount),
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: color),
+                      ),
+                    ),
                   ),
                 ],
               ),
