@@ -136,7 +136,7 @@ create table if not exists transactions (
     id uuid primary key default uuid_generate_v4(),
     user_id uuid references auth.users(id) on delete cascade not null,
     book_id uuid references books(id) on delete cascade,
-    wallet_id uuid references wallets(id) not null,
+    wallet_id uuid references wallets(id) on delete cascade not null,
     category_id uuid references categories(id) not null,
     category_item_id uuid references category_items(id),
     amount numeric not null,
@@ -266,6 +266,56 @@ create trigger transactions_updated_at before update on transactions for each ro
 create trigger transfer_transactions_updated_at before update on transfer_transactions for each row execute procedure set_updated_at();
 create trigger recurring_transactions_updated_at before update on recurring_transactions for each row execute procedure set_updated_at();
 create trigger assets_summary_updated_at before update on assets_summary for each row execute procedure set_updated_at();
+
+-- =========================================
+-- AUTO-UPDATE WALLET BALANCE
+-- =========================================
+
+CREATE OR REPLACE FUNCTION public.recalculate_wallet_balance()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    target_wallet_id uuid;
+BEGIN
+    -- Determine which wallet(s) to update
+    IF TG_OP = 'DELETE' THEN
+        target_wallet_id := OLD.wallet_id;
+    ELSE
+        target_wallet_id := NEW.wallet_id;
+    END IF;
+
+    -- Recalculate balance from all transactions for that wallet
+    UPDATE public.wallets
+    SET balance = COALESCE((
+        SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END)
+        FROM public.transactions
+        WHERE wallet_id = target_wallet_id
+          AND deleted_at IS NULL
+    ), 0)
+    WHERE id = target_wallet_id;
+
+    -- If it was an UPDATE and the wallet_id changed, recalculate old wallet too
+    IF TG_OP = 'UPDATE' AND OLD.wallet_id IS DISTINCT FROM NEW.wallet_id THEN
+        UPDATE public.wallets
+        SET balance = COALESCE((
+            SELECT SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END)
+            FROM public.transactions
+            WHERE wallet_id = OLD.wallet_id
+              AND deleted_at IS NULL
+        ), 0)
+        WHERE id = OLD.wallet_id;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN RETURN OLD;
+    ELSE RETURN NEW;
+    END IF;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS sync_wallet_balance_on_transaction ON public.transactions;
+CREATE TRIGGER sync_wallet_balance_on_transaction
+AFTER INSERT OR UPDATE OR DELETE ON public.transactions
+FOR EACH ROW EXECUTE PROCEDURE public.recalculate_wallet_balance();
+
 
 -- =========================================
 -- 5. INITIAL SETUP TRIGGER

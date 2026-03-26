@@ -3,6 +3,7 @@ import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
 import 'package:urmoney/features/transactions/data/models/transaction_model.dart';
 import 'package:urmoney/features/transactions/data/models/transfer_model.dart';
+import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
 
 class TransactionState {
   final List<TransactionModel> transactions;
@@ -70,6 +71,8 @@ class TransactionNotifier extends Notifier<TransactionState> {
       if (activeBook != null) {
         await fetchTransactions(activeBook.id);
       }
+      // Refresh wallet balances (DB trigger auto-recalculates them)
+      await ref.read(walletProvider.notifier).refreshWallets();
     } catch (e) {
       print('Error adding transaction: $e');
     }
@@ -84,6 +87,7 @@ class TransactionNotifier extends Notifier<TransactionState> {
       if (activeBook != null) {
         await fetchTransactions(activeBook.id);
       }
+      await ref.read(walletProvider.notifier).refreshWallets();
     } catch (e) {
       print('Error updating transaction: $e');
     }
@@ -98,6 +102,7 @@ class TransactionNotifier extends Notifier<TransactionState> {
       if (activeBook != null) {
         await fetchTransactions(activeBook.id);
       }
+      await ref.read(walletProvider.notifier).refreshWallets();
     } catch (e) {
       print('Error deleting transaction: $e');
     }
@@ -112,6 +117,7 @@ class TransactionNotifier extends Notifier<TransactionState> {
       if (activeBook != null) {
         await fetchTransactions(activeBook.id);
       }
+      await ref.read(walletProvider.notifier).refreshWallets();
     } catch (e) {
       print('Error adding transfer: $e');
     }

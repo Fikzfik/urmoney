@@ -34,6 +34,12 @@ class WalletNotifier extends Notifier<AsyncValue<List<WalletModel>>> {
     }
   }
 
+  /// Re-fetches wallets for the current active book (called after transaction mutations).
+  Future<void> refreshWallets() async {
+    final activeBookId = ref.read(bookProvider).activeBook?.id;
+    if (activeBookId != null) await fetchWallets(activeBookId);
+  }
+
   Future<void> addWallet(
     String name,
     String type,
