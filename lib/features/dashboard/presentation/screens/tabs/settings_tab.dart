@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:urmoney/features/auth/providers/auth_provider.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/transactions/presentation/screens/category_settings_screen.dart';
@@ -72,7 +73,12 @@ class SettingsTab extends ConsumerWidget {
                   _buildGroup(
                     title: 'Umum',
                     items: [
-                      _SettingsItem(icon: Icons.person_outline, title: 'Info Profil', iconColor: AppColors.primary, onTap: () {}),
+                      _SettingsItem(
+                        icon: Icons.person_outline,
+                        title: 'Info Profil',
+                        iconColor: AppColors.primary,
+                        onTap: () => context.push('/profile'),
+                      ),
                       _SettingsItem(
                         icon: Icons.book_outlined,
                         title: 'Kelola Buku',
