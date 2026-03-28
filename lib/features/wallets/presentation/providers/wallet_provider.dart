@@ -69,7 +69,6 @@ class WalletNotifier extends Notifier<AsyncValue<List<WalletModel>>> {
         'interest_rate': interestRate,
         'payout_schedule': payoutSchedule,
         'payout_day': payoutDay,
-        'last_interest_payout': DateTime.now().toIso8601String(),
       }).select().single();
       
       final newWallet = WalletModel.fromJson(res);

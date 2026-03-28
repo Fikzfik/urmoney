@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
@@ -36,9 +37,31 @@ class TransactionState {
 }
 
 class TransactionNotifier extends Notifier<TransactionState> {
+  Timer? _midnightTimer;
+
   @override
   TransactionState build() {
+    // Schedule a check for the next midnight
+    Future.microtask(() => _startMidnightTimer());
+    ref.onDispose(() => _midnightTimer?.cancel());
+    
     return TransactionState();
+  }
+
+  void _startMidnightTimer() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    // Calculate next midnight
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final duration = tomorrow.difference(now);
+    
+    print('[Interest] Scheduling next midnight check in ${duration.inHours}h ${duration.inMinutes % 60}m');
+    
+    _midnightTimer = Timer(duration, () async {
+      print('[Interest] Midnight check running...');
+      await checkAndApplyInterest();
+      _startMidnightTimer(); // Repeat for next day
+    });
   }
 
   Future<void> fetchTransactions(String bookId, {DateTime? month}) async {
@@ -87,14 +110,21 @@ class TransactionNotifier extends Notifier<TransactionState> {
 
   Future<void> checkAndApplyInterest() async {
     final walletsAsync = ref.read(walletProvider);
-    if (walletsAsync.value == null) return;
+    if (walletsAsync.value == null) {
+      print('[Interest] Wallets not loaded yet');
+      return;
+    }
 
     final supabase = ref.read(supabaseClientProvider);
     final user = ref.read(currentUserProvider);
     if (user == null) return;
 
     for (var wallet in walletsAsync.value!) {
-      if ((wallet.interestRate ?? 0) <= 0 || wallet.payoutSchedule == null) continue;
+      if ((wallet.interestRate ?? 0) <= 0 || wallet.payoutSchedule == null) {
+        continue;
+      }
+
+      print('[Interest] Checking wallet: ${wallet.name} (Balance: ${wallet.balance}, Rate: ${wallet.interestRate}%)');
 
       final lastPayout = wallet.lastInterestPayout ?? wallet.createdAt;
       final now = DateTime.now();
@@ -102,7 +132,14 @@ class TransactionNotifier extends Notifier<TransactionState> {
       List<DateTime> payoutDates = [];
       
       if (wallet.payoutSchedule == 'harian') {
-        var next = DateTime(lastPayout.year, lastPayout.month, lastPayout.day).add(const Duration(days: 1));
+        // Start from the day of lastPayout (or createdAt)
+        var next = DateTime(lastPayout.year, lastPayout.month, lastPayout.day);
+        
+        // If we already had a payout, starts from the next day
+        if (wallet.lastInterestPayout != null) {
+          next = next.add(const Duration(days: 1));
+        }
+
         while (next.isBefore(now) || (next.year == now.year && next.month == now.month && next.day == now.day)) {
           payoutDates.add(next);
           next = next.add(const Duration(days: 1));
@@ -120,16 +157,21 @@ class TransactionNotifier extends Notifier<TransactionState> {
       }
 
       if (payoutDates.isNotEmpty) {
-        print('Applying ${payoutDates.length} interest payouts for wallet ${wallet.name}');
+        print('[Interest] Found ${payoutDates.length} due payouts for ${wallet.name}');
         
-        // Find or create "Bunga" category
         final catState = ref.read(categoryProvider);
-        var bungaCat = catState.incomeParents.firstWhere((c) => c.name.toLowerCase().contains('bunga'), 
-            orElse: () => catState.incomeParents.first);
+        if (catState.incomeParents.isEmpty) {
+          print('[Interest] No income categories found yet, skipping');
+          return;
+        }
+
+        // Find or create "Bunga" category
+        final bungaCat = catState.incomeParents.firstWhere(
+          (c) => c.name.toLowerCase().contains('bunga'), 
+          orElse: () => catState.incomeParents.first
+        );
 
         for (var date in payoutDates) {
-          // Interest calculation: (Rate / 100) / (365 or 12) * current balance
-          // Note: SEAbank uses daily calculation based on balance.
           double interest;
           if (wallet.payoutSchedule == 'harian') {
             interest = (wallet.balance * (wallet.interestRate! / 100)) / 365;
@@ -137,13 +179,16 @@ class TransactionNotifier extends Notifier<TransactionState> {
             interest = (wallet.balance * (wallet.interestRate! / 100)) / 12;
           }
           
-          // Round to 2 decimals or 0 for RP
           interest = interest.roundToDouble();
+          print('[Interest] Calculated: Rp $interest for date ${DateFormat('d/M/y').format(date)}');
 
-          if (interest < 1) continue; // Skip if too small
+          if (interest < 1) {
+            print('[Interest] Amount too small, skipping');
+            continue;
+          }
 
           final trans = TransactionModel(
-            id: '',
+            id: '', // Supabase will generate
             userId: user.id,
             bookId: wallet.bookId ?? '',
             walletId: wallet.id,
@@ -155,20 +200,32 @@ class TransactionNotifier extends Notifier<TransactionState> {
             createdAt: DateTime.now(),
           );
           
-          await supabase.from('transactions').insert(trans.toJson());
+          try {
+            await supabase.from('transactions').insert(trans.toJson());
+          } catch (e) {
+            print('[Interest] Error inserting transaction: $e');
+          }
         }
 
         // Update last_interest_payout
-        await supabase.from('wallets').update({
-          'last_interest_payout': payoutDates.last.toIso8601String(),
-        }).eq('id', wallet.id);
-
-        // Refresh to see new transactions and updated balance
-        final activeBook = ref.read(bookProvider).activeBook;
-        if (activeBook != null) {
-          await fetchTransactions(activeBook.id);
+        try {
+          await supabase.from('wallets').update({
+            'last_interest_payout': payoutDates.last.toIso8601String(),
+          }).eq('id', wallet.id);
+          
+          print('[Interest] Updated last_payout to ${payoutDates.last}');
+          
+          // Refresh to see new transactions and updated balance
+          final activeBook = ref.read(bookProvider).activeBook;
+          if (activeBook != null) {
+            await fetchTransactions(activeBook.id);
+          }
+          await ref.read(walletProvider.notifier).refreshWallets();
+        } catch (e) {
+          print('[Interest] Error updating wallet: $e');
         }
-        await ref.read(walletProvider.notifier).refreshWallets();
+      } else {
+        print('[Interest] No payouts due for ${wallet.name} (Last: ${DateFormat('d/M/y').format(lastPayout)})');
       }
     }
   }
