@@ -339,21 +339,67 @@ SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     default_book_id UUID;
-    cat_campur_id UUID;
+    cat_id_expense UUID;
+    cat_id_income UUID;
 BEGIN
+    -- 1. Setup User Settings & Summary
     INSERT INTO public.user_settings (user_id) VALUES (new.id);
     INSERT INTO public.assets_summary (user_id, total_balance) VALUES (new.id, 0);
 
-    INSERT INTO public.books (user_id, name, icon) VALUES (new.id, 'Dompet Utama', '57409') RETURNING id INTO default_book_id;
-    INSERT INTO public.wallets (user_id, book_id, name, type, balance, icon) VALUES (new.id, default_book_id, 'Tunai', 'cash', 0, '61263');
+    -- 2. Create Default Book & Wallet
+    INSERT INTO public.books (user_id, name, icon) VALUES (new.id, 'Dompet Utama', '57409') 
+    RETURNING id INTO default_book_id;
+    
+    INSERT INTO public.wallets (user_id, book_id, name, type, balance, icon) 
+    VALUES (new.id, default_book_id, 'Tunai', 'cash', 0, '61263');
 
-    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) VALUES (new.id, default_book_id, 'Campur', 'expense', '57674', '0xFF448AFF', true) RETURNING id INTO cat_campur_id;
-
+    -- 3. Create Default Expense Categories & Items
+    -- Rekomendasi
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) 
+    VALUES (new.id, default_book_id, 'Rekomendasi', 'expense', '58113', '0xFFFF9500', true) 
+    RETURNING id INTO cat_id_expense;
+    
     INSERT INTO public.category_items (category_id, name, icon) VALUES 
-        (cat_campur_id, 'Bensin', '58178'), (cat_campur_id, 'Makan', '57912'),
-        (cat_campur_id, 'Jajan', '58356'), (cat_campur_id, 'Parkir', '58191');
+        (cat_id_expense, 'Diet', '57817'), (cat_id_expense, 'Harian', '57713'), 
+        (cat_id_expense, 'Lalu Lintas', '57621'), (cat_id_expense, 'Sosial', '58349'),
+        (cat_id_expense, 'Perumahan', '58136'), (cat_id_expense, 'Hadiah', '57635'),
+        (cat_id_expense, 'Komunikasi', '58565'), (cat_id_expense, 'Pakaian', '57644'),
+        (cat_id_expense, 'Rekreasi', '58127'), (cat_id_expense, 'Mempercantik', '57628'),
+        (cat_id_expense, 'Medis', '58374'), (cat_id_expense, 'Pajak', '57580'),
+        (cat_id_expense, 'Pendidikan', '58601'), (cat_id_expense, 'Bayi', '57604');
 
-    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) VALUES (new.id, default_book_id, 'Gaji', 'income', '58509', '0xFF009688', true);
+    -- Makan & Minum
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) 
+    VALUES (new.id, default_book_id, 'Makan & Minum', 'expense', '57912', '0xFF448AFF', true) 
+    RETURNING id INTO cat_id_expense;
+    
+    INSERT INTO public.category_items (category_id, name, icon) VALUES 
+        (cat_id_expense, 'Makan', '57912'), (cat_id_expense, 'Minum', '57601'), (cat_id_expense, 'Jajan', '58356');
+
+    -- Transportasi
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) 
+    VALUES (new.id, default_book_id, 'Transportasi', 'expense', '58178', '0xFF448AFF', true) 
+    RETURNING id INTO cat_id_expense;
+    
+    INSERT INTO public.category_items (category_id, name, icon) VALUES 
+        (cat_id_expense, 'Bensin', '58178'), (cat_id_expense, 'Parkir', '58191'), (cat_id_expense, 'Ojek Online', '57405');
+
+    -- Kebutuhan
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) 
+    VALUES (new.id, default_book_id, 'Kebutuhan', 'expense', '57674', '0xFF448AFF', true) 
+    RETURNING id INTO cat_id_expense;
+    
+    INSERT INTO public.category_items (category_id, name, icon) VALUES 
+        (cat_id_expense, 'Listrik', '58330'), (cat_id_expense, 'Air', '58843'), (cat_id_expense, 'Internet', '58840');
+
+    -- 4. Create Default Income Categories & Items
+    -- Pendapatan
+    INSERT INTO public.categories (user_id, book_id, name, type, icon, color, is_default) 
+    VALUES (new.id, default_book_id, 'Pendapatan', 'income', '58509', '0xFF009688', true) 
+    RETURNING id INTO cat_id_income;
+    
+    INSERT INTO public.category_items (category_id, name, icon) VALUES 
+        (cat_id_income, 'Gaji', '58509'), (cat_id_income, 'Bonus', '58355'), (cat_id_income, 'Bunga', '58348');
 
     RETURN new;
 END;

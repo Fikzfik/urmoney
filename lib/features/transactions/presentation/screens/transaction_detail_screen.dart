@@ -6,6 +6,8 @@ import 'package:urmoney/features/transactions/data/models/transaction_model.dart
 import 'package:urmoney/features/transactions/data/models/transfer_model.dart';
 import 'package:urmoney/features/transactions/presentation/providers/transaction_provider.dart';
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
+import 'package:urmoney/features/transactions/data/models/category_model.dart';
+import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
 import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
 
@@ -289,62 +291,149 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
     );
   }
 
-  Widget _buildCategorySelector(CategoryState catState) {
-    final categories = _type == 'income' ? catState.incomeParents : catState.expenseParents;
-    final items = _type == 'income' ? catState.incomeItems : catState.expenseItems;
-    
-    return Column(
-      children: [
-        // Category Pills
-        SizedBox(
-          height: 45,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            itemBuilder: (ctx, i) {
-              final cat = categories[i];
-              final isSelected = cat.id == _selectedCategoryId;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(cat.name),
-                  selected: isSelected,
-                  onSelected: (val) {
-                    if (val) {
-                      setState(() {
-                        _selectedCategoryId = cat.id;
-                        _selectedCategoryItemId = null;
-                      });
-                    }
-                  },
-                  selectedColor: AppColors.primary,
-                  labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textPrimary),
+  void _showCategoryPicker(CategoryState catState) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final categories = _type == 'income' ? catState.incomeParents : catState.expenseParents;
+          final activeCat = categories.firstWhere((c) => c.id == _selectedCategoryId, orElse: () => categories.first);
+          final items = catState.itemsFor(activeCat.id, _type == 'expense');
+          final themeColor = _type == 'expense' ? Colors.blue : Colors.teal;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(height: 5, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(3))),
+                const SizedBox(height: 16),
+                const Text('Pilih Kategori', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 16),
+                
+                // Categories Row
+                SizedBox(
+                  height: 48,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: categories.length,
+                    itemBuilder: (ctx, i) {
+                      final cat = categories[i];
+                      final isSelected = cat.id == _selectedCategoryId;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          showCheckmark: false,
+                          avatar: Icon(cat.icon, size: 14, color: isSelected ? Colors.white : themeColor),
+                          label: Text(cat.name, style: TextStyle(color: isSelected ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                          selected: isSelected,
+                          onSelected: (val) {
+                            if (val) {
+                              setModalState(() => _selectedCategoryId = cat.id);
+                              setState(() => _selectedCategoryId = cat.id);
+                            }
+                          },
+                          selectedColor: themeColor,
+                          backgroundColor: Colors.white,
+                          side: BorderSide(color: isSelected ? themeColor : Colors.grey.shade200),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              );
-            },
-          ),
+
+                // Items Grid
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(20),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4, mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 0.85,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (ctx, i) {
+                      final item = items[i];
+                      final isSelected = item.id == _selectedCategoryItemId;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategoryItemId = item.id;
+                            _selectedCategoryId = item.categoryId;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 50, width: 50,
+                              decoration: BoxDecoration(
+                                color: isSelected ? themeColor.withOpacity(0.1) : Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: isSelected ? themeColor : Colors.grey.shade200, width: isSelected ? 2 : 1),
+                              ),
+                              child: Icon(item.icon, color: isSelected ? themeColor : Colors.grey.shade600, size: 24),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(item.name, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? themeColor : AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategorySelector(CategoryState catState) {
+    CategoryModel? parent;
+    CategoryItemModel? item;
+
+    if (_type == 'income') {
+      parent = catState.incomeParents.firstWhere((c) => c.id == _selectedCategoryId, orElse: () => catState.incomeParents.first);
+      item = catState.incomeItems.firstWhere((i) => i.id == _selectedCategoryItemId, orElse: () => catState.incomeItems.firstWhere((i) => i.categoryId == parent?.id, orElse: () => catState.incomeItems.first));
+    } else {
+      parent = catState.expenseParents.firstWhere((c) => c.id == _selectedCategoryId, orElse: () => catState.expenseParents.first);
+      item = catState.expenseItems.firstWhere((i) => i.id == _selectedCategoryItemId, orElse: () => catState.expenseItems.firstWhere((i) => i.categoryId == parent?.id, orElse: () => catState.expenseItems.first));
+    }
+
+    return GestureDetector(
+      onTap: () => _showCategoryPicker(catState),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(item.icon, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(parent.name, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                  Text(item.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+          ],
         ),
-        if (_selectedCategoryId != null) ...[
-          const SizedBox(height: 12),
-          // Subcategory Items
-          Wrap(
-            spacing: 8,
-            children: items.where((i) => i.categoryId == _selectedCategoryId).map((item) {
-              final isSelected = item.id == _selectedCategoryItemId;
-              return ChoiceChip(
-                label: Text(item.name),
-                selected: isSelected,
-                avatar: Icon(item.icon, size: 16, color: isSelected ? Colors.white : AppColors.primary),
-                onSelected: (val) {
-                  setState(() => _selectedCategoryItemId = val ? item.id : null);
-                },
-                selectedColor: AppColors.primary.withOpacity(0.8),
-                labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textPrimary, fontSize: 12),
-              );
-            }).toList(),
-          ),
-        ],
-      ],
+      ),
     );
   }
 

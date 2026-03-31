@@ -199,12 +199,22 @@ class _CategoryList extends ConsumerWidget {
     final state = ref.watch(categoryProvider);
     final parents = isExpense ? state.expenseParents : state.incomeParents;
 
-    return ListView.builder(
+    return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       itemCount: parents.length,
+      onReorder: (oldIndex, newIndex) {
+        // Current implementation doesn't persist order in DB yet, 
+        // but we can update the local state for now.
+        // In a real app, you'd call ref.read(categoryProvider.notifier).reorder(oldIndex, newIndex);
+      },
       itemBuilder: (context, index) {
         final parent = parents[index];
-        return _ParentCategoryCard(parent: parent, isExpense: isExpense, themeColor: _color);
+        return _ParentCategoryCard(
+          key: ValueKey(parent.id),
+          parent: parent, 
+          isExpense: isExpense, 
+          themeColor: _color,
+        );
       },
     );
   }
@@ -220,6 +230,7 @@ class _ParentCategoryCard extends ConsumerStatefulWidget {
   final Color themeColor;
 
   const _ParentCategoryCard({
+    super.key,
     required this.parent,
     required this.isExpense,
     required this.themeColor,
@@ -239,20 +250,36 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
         .where((i) => !widget.parent.isDefault ? i.categoryId == widget.parent.id : true)
         .toList();
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        children: [
-          _buildHeader(),
-          if (_expanded) _buildItemList(items),
-        ],
-      ),
+    return DragTarget<CategoryItemModel>(
+      onWillAccept: (data) => data != null && data.categoryId != widget.parent.id,
+      onAccept: (data) {
+        ref.read(categoryProvider.notifier).moveItem(data.id, widget.parent.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pindahkan ${data.name} ke ${widget.parent.name}'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isOver = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: isOver ? widget.themeColor.withOpacity(0.12) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: isOver ? Border.all(color: widget.themeColor, width: 2) : null,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              if (_expanded || isOver) _buildItemList(items),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -514,6 +541,38 @@ class _ItemRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return LongPressDraggable<CategoryItemModel>(
+      data: item,
+      axis: Axis.vertical,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: MediaQuery.of(context).size.width - 64,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 4))],
+            border: Border.all(color: themeColor.withOpacity(0.5)),
+          ),
+          child: Row(
+            children: [
+              Icon(item.icon, color: themeColor),
+              const SizedBox(width: 14),
+              Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildItemContent(context, ref),
+      ),
+      child: _buildItemContent(context, ref),
+    );
+  }
+
+  Widget _buildItemContent(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(

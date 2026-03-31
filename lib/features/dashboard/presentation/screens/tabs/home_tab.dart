@@ -23,6 +23,7 @@ class HomeTab extends ConsumerStatefulWidget {
 class _HomeTabState extends ConsumerState<HomeTab> {
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   String _viewType = 'detail';
+  DateTime? _selectedDay;
 
   void _prevMonth() {
     setState(() => _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1));
@@ -369,6 +370,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       ...transState.transfers,
     ]..sort((a, b) => b.date.compareTo(a.date));
 
+    if (_viewType == 'calendar' && _selectedDay != null) {
+      allMovements.removeWhere((m) {
+        final d = m.date;
+        return d.year != _selectedDay!.year || d.month != _selectedDay!.month || d.day != _selectedDay!.day;
+      });
+    }
+
     if (allMovements.isEmpty) return _buildEmptyTransactions();
 
     final grouped = <DateTime, List<dynamic>>{};
@@ -593,14 +601,24 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     final hasExpense = dayTrans.any((t) => t.type == 'expense');
                     final hasIncome = dayTrans.any((t) => t.type == 'income');
                     final isToday = date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
+                    final isSelected = _selectedDay != null && date.year == _selectedDay!.year && date.month == _selectedDay!.month && date.day == _selectedDay!.day;
 
                     return GestureDetector(
-                      onTap: dayTrans.isEmpty ? null : () => _showDaySummary(context, date, dayTrans),
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedDay = null;
+                          } else {
+                            _selectedDay = date;
+                          }
+                        });
+                      },
                       child: Container(
                         margin: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: isToday ? AppColors.primary : Colors.transparent,
+                          color: isSelected ? AppColors.accent : (isToday ? AppColors.primary : Colors.transparent),
                           borderRadius: BorderRadius.circular(8),
+                          border: isToday && !isSelected ? Border.all(color: AppColors.primary, width: 1) : null,
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -654,39 +672,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           _SummaryItem(label: 'Net', amount: _formatCurrency(income - expense), color: AppColors.primary),
           Container(height: 32, width: 1, color: Colors.black12),
           _SummaryItem(label: 'Pengeluaran', amount: _formatCurrency(expense), color: AppColors.expense),
-        ],
-      ),
-    );
-  }
-
-  void _showDaySummary(BuildContext context, DateTime date, List<TransactionModel> dayTrans) {
-    double income = 0, expense = 0;
-    for (var t in dayTrans) {
-      if (t.type == 'income') income += t.amount;
-      else if (t.type == 'expense') expense += t.amount;
-    }
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Text(DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(date), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _SummaryItem(label: 'Pemasukan', amount: _formatCurrency(income), color: AppColors.income),
-                    _SummaryItem(label: 'Pengeluaran', amount: _formatCurrency(expense), color: AppColors.expense),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

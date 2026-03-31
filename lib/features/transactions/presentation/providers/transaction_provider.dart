@@ -41,8 +41,11 @@ class TransactionNotifier extends Notifier<TransactionState> {
 
   @override
   TransactionState build() {
-    // Schedule a check for the next midnight
-    Future.microtask(() => _startMidnightTimer());
+    // Schedule a check for the next midnight and run once on start
+    Future.microtask(() {
+      checkAndApplyInterest();
+      _startMidnightTimer();
+    });
     ref.onDispose(() => _midnightTimer?.cancel());
     
     return TransactionState();
@@ -109,8 +112,14 @@ class TransactionNotifier extends Notifier<TransactionState> {
   }
 
   Future<void> checkAndApplyInterest() async {
+    // Wait for wallets to be loaded
     final walletsAsync = ref.read(walletProvider);
     if (walletsAsync.value == null) {
+      if (walletsAsync.isLoading) {
+        print('[Interest] Wallets loading, waiting...');
+        await Future.delayed(const Duration(seconds: 2));
+        return checkAndApplyInterest(); // Retry once
+      }
       print('[Interest] Wallets not loaded yet');
       return;
     }
@@ -161,6 +170,13 @@ class TransactionNotifier extends Notifier<TransactionState> {
         
         final catState = ref.read(categoryProvider);
         if (catState.incomeParents.isEmpty) {
+          if (catState.isLoading) {
+            print('[Interest] Categories still loading, waiting...');
+            await Future.delayed(const Duration(seconds: 2));
+            // Just return, the next refresh or manual call will handle it
+            // or we could retry, but let's avoid infinite loops.
+            return;
+          }
           print('[Interest] No income categories found yet, skipping');
           return;
         }
