@@ -150,6 +150,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
   int _selectedItemIndex = -1;
   WalletModel? _selectedWallet;
   final TextEditingController _noteController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
 
   Future<void> _handleSave() async {
     final state = ref.read(categoryProvider);
@@ -192,7 +193,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
       amount: amountDouble,
       type: widget.isExpense ? 'expense' : 'income',
       note: _noteController.text,
-      date: DateTime.now(),
+      date: _selectedDate,
       createdAt: DateTime.now(),
     );
 
@@ -362,6 +363,8 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                   ? ref.watch(walletProvider).value!.first
                   : null),
           onWalletChanged: (wallet) => setState(() => _selectedWallet = wallet),
+          selectedDate: _selectedDate,
+          onDateChanged: (date) => setState(() => _selectedDate = date),
           onSave: _handleSave,
         ),
       ],
@@ -380,6 +383,7 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
   final TextEditingController _noteController = TextEditingController();
   WalletModel? _fromWallet;
   WalletModel? _toWallet;
+  DateTime _selectedDate = DateTime.now();
 
   void _onKeypadTap(String val) {
     setState(() {
@@ -423,7 +427,7 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
       toWalletId: _toWallet!.id,
       amount: amountDouble,
       note: _noteController.text,
-      date: DateTime.now(),
+      date: _selectedDate,
       createdAt: DateTime.now(),
     );
 
@@ -439,7 +443,7 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
             child: walletsAsync.when(
               data: (wallets) {
                 if (wallets.isEmpty) {
@@ -450,20 +454,20 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
 
                 return Column(
                   children: [
-                    _buildWalletDropdown('Dari Dompet', _fromWallet!, wallets,
+                    _buildWalletSelector('Dari Dompet', _fromWallet!, wallets,
                         (val) => setState(() => _fromWallet = val)),
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                             color: Colors.blueAccent.withOpacity(0.1),
                             shape: BoxShape.circle),
                         child: const Icon(Icons.keyboard_double_arrow_down_rounded,
-                            color: Colors.blueAccent),
+                            color: Colors.blueAccent, size: 20),
                       ),
                     ),
-                    _buildWalletDropdown('Ke Dompet', _toWallet!, wallets,
+                    _buildWalletSelector('Ke Dompet', _toWallet!, wallets,
                         (val) => setState(() => _toWallet = val)),
                   ],
                 );
@@ -480,60 +484,78 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
           themeColor: Colors.blueAccent,
           selectedWallet: _fromWallet,
           onWalletChanged: (w) => setState(() => _fromWallet = w),
+          selectedDate: _selectedDate,
+          onDateChanged: (date) => setState(() => _selectedDate = date),
           onSave: _handleSave,
         ),
       ],
     );
   }
 
-  Widget _buildWalletDropdown(String title, WalletModel value,
+  Widget _buildWalletSelector(String title, WalletModel value,
       List<WalletModel> wallets, ValueChanged<WalletModel?> onChanged) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<WalletModel>(
-              value: value,
-              isExpanded: true,
-              isDense: true,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-              items: wallets.map((w) => DropdownMenuItem(
-                value: w,
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.account_balance_wallet_rounded, size: 14, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(w.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('Rp ${w.balance.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              )).toList(),
-              onChanged: onChanged,
-            ),
+    return InkWell(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => _WalletPicker(
+            themeColor: Colors.blueAccent,
+            selectedWallet: value,
+            onWalletChanged: onChanged,
           ),
-        ],
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade100)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.account_balance_wallet_rounded,
+                      size: 14, color: AppColors.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(value.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(
+                          'Rp ${value.balance.toStringAsFixed(0).replaceAllMapped(RegExp(r"\B(?=(\d{3})+(?!\d))"), (m) => ".")}',
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 10)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.textSecondary, size: 20),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -544,9 +566,11 @@ class _CustomKeypad extends StatefulWidget {
   final TextEditingController noteController;
   final Function(String) onKeypadTap;
   final VoidCallback onSave;
-  final Color themeColor;
   final WalletModel? selectedWallet;
   final ValueChanged<WalletModel?> onWalletChanged;
+  final DateTime selectedDate;
+  final ValueChanged<DateTime> onDateChanged;
+  final Color themeColor;
 
   const _CustomKeypad({
     required this.amount,
@@ -556,6 +580,8 @@ class _CustomKeypad extends StatefulWidget {
     required this.themeColor,
     this.selectedWallet,
     required this.onWalletChanged,
+    required this.selectedDate,
+    required this.onDateChanged,
   });
 
   @override
@@ -566,8 +592,12 @@ class _CustomKeypadState extends State<_CustomKeypad> {
   bool _showExtras = false;
 
   String _formatAmount(String amt) {
-    if (amt.isEmpty || amt == '0') return '0';
-    return amt.replaceAllMapped(RegExp(r'\d+(\.\d+)?'), (match) {
+    // Sanitize amount to remove "TODAY" or other leftovers
+    if (amt.isEmpty || amt == '0' || !RegExp(r'[0-9]').hasMatch(amt)) return '0';
+    String cleaned = amt.replaceAll(RegExp(r'[^0-9.+-×÷]'), '');
+    if (cleaned.isEmpty) return '0';
+
+    return cleaned.replaceAllMapped(RegExp(r'\d+(\.\d+)?'), (match) {
       String numStr = match.group(0)!;
       final parts = numStr.split('.');
       final ints = parts[0];
@@ -587,6 +617,13 @@ class _CustomKeypadState extends State<_CustomKeypad> {
   Widget build(BuildContext context) {
     final color = widget.themeColor;
 
+    // Auto-fix "TODAY" leftovers if they arrive from parent state
+    if (widget.amount.contains('TODAY')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onKeypadTap('C');
+      });
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: color,
@@ -601,7 +638,7 @@ class _CustomKeypadState extends State<_CustomKeypad> {
               onTap: () => setState(() => _showExtras = !_showExtras),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                padding: const EdgeInsets.only(top: 4, bottom: 2),
                 child: Center(
                   child: AnimatedRotation(
                     turns: _showExtras ? 0.5 : 0,
@@ -728,9 +765,9 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: _buildKeyGrid(color),
             ),
           ],
@@ -745,7 +782,7 @@ class _CustomKeypadState extends State<_CustomKeypad> {
       ['7', '8', '9', '-'],
       ['4', '5', '6', '+'],
       ['1', '2', '3', '='],
-      ['TODAY', '0', '.', '✓'],
+      ['DATE', '0', '.', '✓'],
     ];
 
     return Column(
@@ -775,10 +812,13 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: GestureDetector(
                           onTap: () {
-                            if (k == '✓')
+                            if (k == '✓') {
                               widget.onSave();
-                            else
+                            } else if (k == 'DATE') {
+                              _handleDatePicker(context);
+                            } else {
                               widget.onKeypadTap(k);
+                            }
                           },
                           child: Container(
                             height: 40,
@@ -812,11 +852,58 @@ class _CustomKeypadState extends State<_CustomKeypad> {
     if (k == '⌫')
       return Icon(Icons.backspace_rounded, color: color, size: 18);
     if (k == '✓') return Icon(Icons.check_rounded, color: color, size: 24);
-    if (k == 'TODAY')
-      return Icon(Icons.calendar_today_rounded, color: color, size: 18);
+    if (k == 'DATE') {
+      final now = DateTime.now();
+      final isToday = widget.selectedDate.year == now.year &&
+          widget.selectedDate.month == now.month &&
+          widget.selectedDate.day == now.day;
+
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.calendar_today_rounded,
+              color: color, size: isToday ? 16 : 14),
+          if (!isToday) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${widget.selectedDate.day}/${widget.selectedDate.month}',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
     return Text(k,
         style:
             TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color));
+  }
+
+  Future<void> _handleDatePicker(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: widget.selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: widget.themeColor,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      widget.onDateChanged(picked);
+    }
   }
 
   void _showWalletPicker(BuildContext context) {
