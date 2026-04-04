@@ -67,5 +67,7 @@ class AppColors {
     'digitalbank': [Color(0xFF6A1B9A), Color(0xFFAD1457)],
     'ewallet': [Color(0xFFE65100), Color(0xFFFF8F00)],
     'cash': [Color(0xFF1B5E20), Color(0xFF00897B)],
+    'debt': [Color(0xFFC62828), Color(0xFFE53935)],
+    'receivable': [Color(0xFF2E7D32), Color(0xFF43A047)],
   };
 }

@@ -78,7 +78,18 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
     {'key': 'digitalbank', 'name': 'Digital Bank', 'icon': Icons.phonelink_ring_rounded},
     {'key': 'ewallet', 'name': 'e-Wallet', 'icon': Icons.wallet_rounded},
     {'key': 'cash', 'name': 'Tunai', 'icon': Icons.money_rounded},
+    {'key': 'debt', 'name': 'Utang', 'icon': Icons.credit_card_rounded},
+    {'key': 'receivable', 'name': 'Piutang', 'icon': Icons.front_hand_rounded},
   ];
+
+  static const _suggestions = {
+    'bankmobile': ['BNI', 'BCA', 'Mandiri', 'BRI', 'BTN', 'CIMB Niaga', 'Permata'],
+    'digitalbank': ['SeaBank', 'Bank Jago', 'Blu', 'Line Bank', 'Allo Bank', 'Neobank'],
+    'ewallet': ['GoPay', 'OVO', 'Dana', 'LinkAja', 'ShopeePay'],
+    'cash': ['Dompet', 'Celengan', 'Kas'],
+    'debt': ['Kartu Kredit', 'Pinjaman Teman', 'Paylater'],
+    'receivable': ['Pinjaman ke Teman', 'Piutang Dagang'],
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +218,9 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _sectionTitle('Nama Dompet'),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
+                        _buildSuggestions(),
+                        const SizedBox(height: 12),
                         _buildField('Nama Dompet', nameCtrl, Icons.edit_note_rounded, gradColors.first,
                             onChanged: (_) => setState(() {})),
 
@@ -298,6 +311,44 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    final list = _suggestions[selectedType] ?? [];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: list.map((s) {
+          final isSelected = nameCtrl.text == s;
+          final color = AppColors.walletGradients[selectedType]?.first ?? AppColors.primary;
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                nameCtrl.text = s;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? color.withOpacity(0.1) : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isSelected ? color : Colors.grey.shade200),
+              ),
+              child: Text(
+                s,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? color : Colors.grey.shade600,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

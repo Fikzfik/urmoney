@@ -67,7 +67,7 @@ class TransactionNotifier extends Notifier<TransactionState> {
     });
   }
 
-  Future<void> fetchTransactions(String bookId, {DateTime? month}) async {
+  Future<void> fetchTransactions(String bookId, {DateTime? month, DateTime? startDate, DateTime? endDate}) async {
     state = state.copyWith(isLoading: true);
     try {
       final supabase = ref.read(supabaseClientProvider);
@@ -89,6 +89,14 @@ class TransactionNotifier extends Notifier<TransactionState> {
         transferQuery = transferQuery
             .gte('date', startOfMonth.toIso8601String())
             .lte('date', endOfMonth.toIso8601String());
+      } else if (startDate != null && endDate != null) {
+        transQuery = transQuery
+            .gte('date', startDate.toIso8601String())
+            .lte('date', endDate.toIso8601String());
+            
+        transferQuery = transferQuery
+            .gte('date', startDate.toIso8601String())
+            .lte('date', endDate.toIso8601String());
       }
 
       final responses = await Future.wait([
