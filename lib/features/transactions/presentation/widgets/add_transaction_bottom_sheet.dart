@@ -384,6 +384,8 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
   WalletModel? _fromWallet;
   WalletModel? _toWallet;
   DateTime _selectedDate = DateTime.now();
+  bool _hasFee = false;
+  final TextEditingController _feeController = TextEditingController(text: '0');
 
   void _onKeypadTap(String val) {
     setState(() {
@@ -419,6 +421,8 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
 
     if (activeBook == null || user == null) return;
 
+    final feeAmount = _hasFee ? (double.tryParse(_feeController.text.replaceAll('.', '')) ?? 0.0) : 0.0;
+
     final transfer = TransferModel(
       id: '',
       userId: user.id,
@@ -426,6 +430,7 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
       fromWalletId: _fromWallet!.id,
       toWalletId: _toWallet!.id,
       amount: amountDouble,
+      fee: feeAmount,
       note: _noteController.text,
       date: _selectedDate,
       createdAt: DateTime.now(),
@@ -469,6 +474,8 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
                     ),
                     _buildWalletSelector('Ke Dompet', _toWallet!, wallets,
                         (val) => setState(() => _toWallet = val)),
+                    const SizedBox(height: 20),
+                    _buildFeeSelector(),
                   ],
                 );
               },
@@ -489,6 +496,88 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
           onSave: _handleSave,
         ),
       ],
+    );
+  }
+
+  Widget _buildFeeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.receipt_long_rounded, size: 18, color: Colors.orange),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Biaya Transfer / Pajak',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: AppColors.textPrimary)),
+                      Text('Aktifkan jika ada biaya admin',
+                          style: TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ],
+              ),
+              Switch.adaptive(
+                value: _hasFee,
+                activeColor: Colors.blueAccent,
+                onChanged: (val) => setState(() => _hasFee = val),
+              ),
+            ],
+          ),
+          if (_hasFee) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1),
+            ),
+            Row(
+              children: [
+                const Text('Rp',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.textSecondary)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _feeController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18, color: Colors.orange),
+                    decoration: const InputDecoration(
+                      hintText: '0',
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -592,7 +681,6 @@ class _CustomKeypadState extends State<_CustomKeypad> {
   bool _showExtras = false;
 
   String _formatAmount(String amt) {
-    // Sanitize amount to remove "TODAY" or other leftovers
     if (amt.isEmpty || amt == '0' || !RegExp(r'[0-9]').hasMatch(amt)) return '0';
     String cleaned = amt.replaceAll(RegExp(r'[^0-9.+-×÷]'), '');
     if (cleaned.isEmpty) return '0';
@@ -616,13 +704,6 @@ class _CustomKeypadState extends State<_CustomKeypad> {
   @override
   Widget build(BuildContext context) {
     final color = widget.themeColor;
-
-    // Auto-fix "TODAY" leftovers if they arrive from parent state
-    if (widget.amount.contains('TODAY')) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onKeypadTap('C');
-      });
-    }
 
     return Container(
       decoration: BoxDecoration(
@@ -673,27 +754,24 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: Container(
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.location_on_rounded,
-                                  color: color, size: 20),
-                              const SizedBox(height: 2),
-                              const Text('Lokasi Nonaktifkan',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          ),
+                      child: Container(
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.location_on_rounded,
+                                color: color, size: 20),
+                            const SizedBox(height: 2),
+                            const Text('Lokasi Nonaktifkan',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w600)),
+                          ],
                         ),
                       ),
                     ),
@@ -791,7 +869,7 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: row.map((k) {
-                    bool isDigit = RegExp(r'[0-9.]').hasMatch(k) || k == 'TODAY';
+                    bool isDigit = RegExp(r'[0-9.]').hasMatch(k);
                     bool isAction = k == '✓';
 
                     Color btnColor;

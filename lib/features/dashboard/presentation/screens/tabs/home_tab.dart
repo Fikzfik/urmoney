@@ -12,6 +12,8 @@ import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.
 import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/transactions/presentation/screens/transaction_detail_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class HomeTab extends ConsumerStatefulWidget {
   const HomeTab({super.key});
@@ -212,10 +214,40 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               ),
               const SizedBox(height: 20),
               // Balance
-              Text('Total Saldo', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
-              const SizedBox(height: 4),
-              Text(formatRp(totalBalance),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32, letterSpacing: -0.5)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total Saldo', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
+                        const SizedBox(height: 4),
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0, end: totalBalance),
+                          duration: const Duration(milliseconds: 1500),
+                          curve: Curves.easeOutExpo,
+                          builder: (context, value, child) {
+                            return Text(formatRp(value),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32, letterSpacing: -0.5));
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Animated Illustration Area
+                  SizedBox(
+                    height: 80,
+                    width: 80,
+                    child: Lottie.network(
+                      'https://assets9.lottiefiles.com/packages/lf20_ghp9o9pc.json', // A cute wealth/money animation
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => 
+                        Icon(Icons.auto_graph_rounded, color: Colors.white.withOpacity(0.2), size: 60),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               // Book pills
               SizedBox(
@@ -386,37 +418,48 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     }
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    return ListView.builder(
-      shrinkWrap: shrinkWrap,
-      physics: physics,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12).copyWith(bottom: 120),
-      itemCount: sortedDates.length,
-      itemBuilder: (context, i) {
-        final date = sortedDates[i];
-        final dayMovements = grouped[date]!;
-        final dayLabel = DateFormat('EEE, d/M', 'id_ID').format(date);
+    return AnimationLimiter(
+      child: ListView.builder(
+        shrinkWrap: shrinkWrap,
+        physics: physics,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12).copyWith(bottom: 120),
+        itemCount: sortedDates.length,
+        itemBuilder: (context, i) {
+          final date = sortedDates[i];
+          final dayMovements = grouped[date]!;
+          final dayLabel = DateFormat('EEE, d/M', 'id_ID').format(date);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 8, top: 12),
-              child: Row(
-                children: [
-                  Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Text(dayLabel, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                ],
+          return AnimationConfiguration.staggeredList(
+            position: i,
+            duration: const Duration(milliseconds: 500),
+            child: FadeInAnimation(
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 8, top: 12),
+                      child: Row(
+                        children: [
+                          Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle)),
+                          const SizedBox(width: 8),
+                          Text(dayLabel, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    ...dayMovements.map((m) {
+                      if (m is TransactionModel) return _buildTransactionCard(context, m);
+                      if (m is TransferModel) return _buildTransferCard(context, m);
+                      return const SizedBox.shrink();
+                    }),
+                  ],
+                ),
               ),
             ),
-            ...dayMovements.map((m) {
-              if (m is TransactionModel) return _buildTransactionCard(context, m);
-              if (m is TransferModel) return _buildTransferCard(context, m);
-              return const SizedBox.shrink();
-            }),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

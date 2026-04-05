@@ -28,12 +28,14 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
 class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScreen> {
   late TextEditingController _amountController;
   late TextEditingController _noteController;
+  late TextEditingController _feeController;
   late DateTime _selectedDate;
   String? _selectedWalletId;
   String? _toWalletId; // For transfers
   String? _selectedCategoryId;
   String? _selectedCategoryItemId;
   late String _type;
+  bool _hasFee = false;
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
       final t = widget.transaction!;
       _amountController = TextEditingController(text: t.amount.toStringAsFixed(0));
       _noteController = TextEditingController(text: t.note ?? '');
+      _feeController = TextEditingController(text: '0');
       _selectedDate = t.date;
       _selectedWalletId = t.walletId;
       _selectedCategoryId = t.categoryId;
@@ -51,6 +54,8 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
       final t = widget.transfer!;
       _amountController = TextEditingController(text: t.amount.toStringAsFixed(0));
       _noteController = TextEditingController(text: t.note ?? '');
+      _feeController = TextEditingController(text: t.fee.toStringAsFixed(0));
+      _hasFee = t.fee > 0;
       _selectedDate = t.date;
       _selectedWalletId = t.fromWalletId;
       _toWalletId = t.toWalletId;
@@ -62,6 +67,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _feeController.dispose();
     super.dispose();
   }
 
@@ -112,6 +118,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dompet asal dan tujuan tidak boleh sama')));
         return;
       }
+      
+      final feeAmount = _hasFee ? (double.tryParse(_feeController.text.replaceAll('.', '')) ?? 0.0) : 0.0;
+
       final updated = TransferModel(
         id: t.id,
         userId: t.userId,
@@ -119,6 +128,7 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         fromWalletId: _selectedWalletId!,
         toWalletId: _toWalletId!,
         amount: amount,
+        fee: feeAmount,
         date: _selectedDate,
         note: _noteController.text.trim(),
         createdAt: t.createdAt,
@@ -220,6 +230,8 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
               const SizedBox(height: 12),
               const _Label('Ke Dompet'),
               _buildWalletDropdown(wallets, _toWalletId, (val) => setState(() => _toWalletId = val)),
+              const SizedBox(height: 24),
+              _buildFeeSection(),
             ],
             const SizedBox(height: 20),
 
@@ -433,6 +445,68 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
             const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFeeSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.receipt_long_rounded, color: Colors.orange, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Biaya Transfer / Pajak', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
+                      Text('Aktifkan jika ada biaya admin', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ],
+              ),
+              Switch.adaptive(
+                value: _hasFee,
+                activeColor: Colors.blueAccent,
+                onChanged: (val) => setState(() => _hasFee = val),
+              ),
+            ],
+          ),
+          if (_hasFee) ...[
+            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+            Row(
+              children: [
+                const Text('Rp', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _feeController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.orange),
+                    decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

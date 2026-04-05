@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/providers/supabase_provider.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
+import 'package:urmoney/features/transactions/data/models/category_model.dart';
 import 'package:urmoney/features/transactions/data/models/transaction_model.dart';
 import 'package:urmoney/features/transactions/data/models/transfer_model.dart';
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
@@ -302,7 +304,15 @@ class TransactionNotifier extends Notifier<TransactionState> {
   Future<void> addTransfer(TransferModel transfer) async {
     try {
       final supabase = ref.read(supabaseClientProvider);
-      await supabase.from('transfer_transactions').insert(transfer.toJson());
+      
+      // 1. Insert Transfer
+      final response = await supabase.from('transfer_transactions').insert(transfer.toJson()).select().single();
+      final savedTransfer = TransferModel.fromJson(response);
+      
+      // 2. If there is a fee, create a corresponding expense
+      if (savedTransfer.fee > 0) {
+        await _syncFeeExpense(savedTransfer);
+      }
       
       final activeBook = ref.read(bookProvider).activeBook;
       if (activeBook != null) {
@@ -317,7 +327,12 @@ class TransactionNotifier extends Notifier<TransactionState> {
   Future<void> updateTransfer(TransferModel transfer) async {
     try {
       final supabase = ref.read(supabaseClientProvider);
+      
+      // 1. Update Transfer
       await supabase.from('transfer_transactions').update(transfer.toJson()).eq('id', transfer.id);
+      
+      // 2. Sync Fee Expense
+      await _syncFeeExpense(transfer);
       
       final activeBook = ref.read(bookProvider).activeBook;
       if (activeBook != null) {
@@ -332,6 +347,11 @@ class TransactionNotifier extends Notifier<TransactionState> {
   Future<void> deleteTransfer(String id) async {
     try {
       final supabase = ref.read(supabaseClientProvider);
+      
+      // 1. Delete linked expense first
+      await supabase.from('transactions').delete().ilike('note', '%[FEE] Transfer: $id%');
+      
+      // 2. Delete Transfer
       await supabase.from('transfer_transactions').delete().eq('id', id);
       
       final activeBook = ref.read(bookProvider).activeBook;
@@ -341,6 +361,51 @@ class TransactionNotifier extends Notifier<TransactionState> {
       await ref.read(walletProvider.notifier).refreshWallets();
     } catch (e) {
       print('Error deleting transfer: $e');
+    }
+  }
+
+  Future<void> _syncFeeExpense(TransferModel transfer) async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final feeTag = '[FEE] Transfer: ${transfer.id}';
+      
+      // Search for existing fee
+      final existing = await supabase.from('transactions')
+          .select()
+          .eq('book_id', transfer.bookId)
+          .ilike('note', '%$feeTag%');
+      
+      if (transfer.fee > 0) {
+        final catState = ref.read(categoryProvider);
+        final feeCat = catState.expenseParents.firstWhere(
+          (c) => c.name.toLowerCase().contains('biaya') || c.name.toLowerCase().contains('admin'),
+          orElse: () => catState.expenseParents.isNotEmpty ? catState.expenseParents.first : CategoryModel(id: 'other', userId: '', name: 'Lainnya', type: 'expense', icon: Icons.more_horiz, isDefault: true),
+        );
+
+        final feeTrans = TransactionModel(
+          id: existing.isNotEmpty ? existing[0]['id'] : '',
+          userId: transfer.userId,
+          bookId: transfer.bookId,
+          walletId: transfer.fromWalletId,
+          categoryId: feeCat.id,
+          amount: transfer.fee,
+          type: 'expense',
+          note: '$feeTag | ${transfer.note ?? "Tanpa Catatan"}',
+          date: transfer.date,
+          createdAt: DateTime.now(),
+        );
+
+        if (existing.isNotEmpty) {
+          await supabase.from('transactions').update(feeTrans.toJson()).eq('id', feeTrans.id);
+        } else {
+          await supabase.from('transactions').insert(feeTrans.toJson());
+        }
+      } else if (existing.isNotEmpty) {
+        // Fee was removed
+        await supabase.from('transactions').delete().eq('id', existing[0]['id']);
+      }
+    } catch (e) {
+      print('Error syncing fee expense: $e');
     }
   }
 }

@@ -5,6 +5,7 @@ class TransferModel {
   final String fromWalletId;
   final String toWalletId;
   final double amount;
+  final double fee;
   final String? note;
   final DateTime date;
   final DateTime createdAt;
@@ -16,6 +17,7 @@ class TransferModel {
     required this.fromWalletId,
     required this.toWalletId,
     required this.amount,
+    this.fee = 0.0,
     this.note,
     required this.date,
     required this.createdAt,
@@ -29,6 +31,7 @@ class TransferModel {
       fromWalletId: json['from_wallet_id'],
       toWalletId: json['to_wallet_id'],
       amount: (json['amount'] as num).toDouble(),
+      fee: (json['fee'] as num?)?.toDouble() ?? 0.0,
       note: json['note'],
       date: DateTime.parse(json['date']),
       createdAt: DateTime.parse(json['created_at']),
@@ -42,6 +45,7 @@ class TransferModel {
       'from_wallet_id': fromWalletId,
       'to_wallet_id': toWalletId,
       'amount': amount,
+      'fee': fee,
       'note': note,
       'date': date.toIso8601String(),
     };
