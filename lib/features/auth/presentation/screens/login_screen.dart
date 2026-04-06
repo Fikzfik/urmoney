@@ -40,9 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         children: [
           // Background graphic
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+            bottom: 0, left: 0, right: 0,
             child: Container(
               height: 150,
               decoration: const BoxDecoration(
@@ -55,93 +53,94 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Custom Illustration
-                    Center(
-                      child: Image.asset(
-                        'assets/images/ilustration-1.png',
-                        height: 220,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Welcome Back',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Hello there, sign in to continue',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-                    TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        hintText: 'Email address',
-                        prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSecondary),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _passwordController,
-                      decoration: const InputDecoration(
-                        hintText: 'Password',
-                        prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSecondary),
-                      ),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {},
-                        child: const Text('Forgot your password?', style: TextStyle(color: AppColors.textSecondary)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GradientButton(
-                      onPressed: _isLoading ? null : _login,
-                      isLoading: _isLoading,
-                      text: 'Sign In',
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
+            child: Stack(
+              children: [
+                // Back Button
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: IconButton(
+                    onPressed: () => context.go('/onboarding'),
+                    icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.primaryDark),
+                  ),
+                ),
+                Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(color: AppColors.textSecondary),
+                        // Illustration
+                        Center(
+                          child: Image.asset('assets/images/ilustration-1.png', height: 200, fit: BoxFit.contain),
                         ),
-                        GestureDetector(
-                          onTap: () => context.push('/register'),
-                          child: const Text(
-                            "Sign Up",
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        const SizedBox(height: 32),
+                        Text(
+                          'Welcome Back',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryDark,
                           ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Hello there, sign in to continue',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 48),
+                        TextField(
+                          controller: _emailController,
+                          decoration: const InputDecoration(
+                            hintText: 'Email address',
+                            prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSecondary),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _passwordController,
+                          decoration: const InputDecoration(
+                            hintText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSecondary),
+                          ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {},
+                            child: const Text('Forgot your password?', style: TextStyle(color: AppColors.textSecondary)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        GradientButton(
+                          onPressed: _isLoading ? null : _login,
+                          isLoading: _isLoading,
+                          text: 'Sign In',
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text("Don't have an account? ", style: TextStyle(color: AppColors.textSecondary)),
+                            GestureDetector(
+                              onTap: () => context.push('/register'),
+                              child: const Text(
+                                "Sign Up",
+                                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],

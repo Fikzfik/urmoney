@@ -193,11 +193,16 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Text('Halo, 👋', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
-                      Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+                      const SizedBox(width: 4),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Halo, 👋', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
+                          Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                        ],
+                      ),
                     ],
                   ),
                   Container(
