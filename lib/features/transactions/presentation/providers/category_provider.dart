@@ -219,13 +219,13 @@ class CategoryNotifier extends Notifier<CategoryState> {
 
   // ── Item CRUD ────────────────────────────────────────────────────────────────
 
-  Future<void> addItem(String label, IconData icon, String parentId) async {
+  Future<void> addItem(String label, IconData? icon, String parentId, {String? iconPath}) async {
     try {
       final client = ref.read(supabaseClientProvider);
       await client.from('category_items').insert({
         'category_id': parentId,
         'name': label,
-        'icon': icon.codePoint.toString(),
+        'icon': iconPath ?? icon?.codePoint.toString(),
       });
       final bookId = ref.read(bookProvider).activeBook?.id;
       if (bookId != null) await fetchCategories(bookId);
@@ -234,12 +234,12 @@ class CategoryNotifier extends Notifier<CategoryState> {
     }
   }
 
-  Future<void> editItem(String itemId, String newName, int newIconCode) async {
+  Future<void> editItem(String itemId, String newName, int? newIconCode, {String? iconPath}) async {
     try {
       final client = ref.read(supabaseClientProvider);
       await client.from('category_items').update({
         'name': newName,
-        'icon': newIconCode.toString(),
+        'icon': iconPath ?? newIconCode?.toString(),
       }).eq('id', itemId);
       final bookId = ref.read(bookProvider).activeBook?.id;
       if (bookId != null) await fetchCategories(bookId);

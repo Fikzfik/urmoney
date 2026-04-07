@@ -114,8 +114,15 @@ class _CategorySettingsScreenState extends ConsumerState<CategorySettingsScreen>
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        final icon = await showIconPicker(ctx, current: selectedIcon, themeColor: color);
-                        if (icon != null) setSheetState(() => selectedIcon = icon);
+                        final result = await showIconPicker(ctx, current: selectedIcon, themeColor: color);
+                        if (result != null) {
+                          setSheetState(() {
+                            if (result['icon'] != null) selectedIcon = result['icon'];
+                            // For parent categories, we currently only support Material Icons 
+                            // as they are primarily used for broad categories.
+                            // If we want to support image icons for parents, we'd need to update CategoryModel.
+                          });
+                        }
                       },
                       child: Container(
                         width: 60, height: 60,
@@ -428,7 +435,8 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
 
   Future<void> _showAddItemDialog() async {
     final ctrl = TextEditingController();
-    IconData selectedIcon = Icons.label_rounded;
+    IconData? selectedIcon = Icons.label_rounded;
+    String? selectedIconPath;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -458,17 +466,30 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        final icon = await showIconPicker(ctx, current: selectedIcon, themeColor: widget.themeColor);
-                        if (icon != null) setSheetState(() => selectedIcon = icon);
+                        final result = await showIconPicker(ctx, current: selectedIcon, themeColor: widget.themeColor);
+                        if (result != null) {
+                          setSheetState(() {
+                            if (result['icon'] != null) {
+                              selectedIcon = result['icon'];
+                              selectedIconPath = null;
+                            } else if (result['path'] != null) {
+                              selectedIconPath = result['path'];
+                              selectedIcon = null;
+                            }
+                          });
+                        }
                       },
                       child: Container(
                         width: 56, height: 56,
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: widget.themeColor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: widget.themeColor.withOpacity(0.3)),
                         ),
-                        child: Icon(selectedIcon, color: widget.themeColor, size: 28),
+                        child: selectedIconPath != null
+                            ? Image.asset(selectedIconPath!, fit: BoxFit.contain)
+                            : Icon(selectedIcon ?? Icons.category_rounded, color: widget.themeColor, size: 28),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -504,8 +525,12 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (ctrl.text.trim().isEmpty) return;
-                          ref.read(categoryProvider.notifier)
-                            .addItem(ctrl.text.trim(), selectedIcon, widget.parent.id);
+                          ref.read(categoryProvider.notifier).addItem(
+                            ctrl.text.trim(),
+                            selectedIcon,
+                            widget.parent.id,
+                            iconPath: selectedIconPath,
+                          );
                           Navigator.pop(ctx);
                         },
                         style: ElevatedButton.styleFrom(
@@ -557,7 +582,9 @@ class _ItemRow extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(item.icon, color: themeColor),
+              item.iconPath != null 
+                  ? Image.asset(item.iconPath!, width: 20, height: 20)
+                  : Icon(item.icon ?? Icons.help_outline, color: themeColor),
               const SizedBox(width: 14),
               Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
@@ -579,11 +606,9 @@ class _ItemRow extends ConsumerWidget {
         children: [
           Container(
             width: 38, height: 38,
-            decoration: BoxDecoration(
-              color: themeColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item.icon, color: themeColor, size: 20),
+            child: item.iconPath != null
+                ? Image.asset(item.iconPath!, width: 24, height: 24)
+                : Icon(item.icon ?? Icons.help_outline, color: themeColor, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -632,7 +657,8 @@ class _ItemRow extends ConsumerWidget {
 
   Future<void> _showEditDialog(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController(text: item.name);
-    IconData selectedIcon = item.icon;
+    IconData? selectedIcon = item.icon;
+    String? selectedIconPath = item.iconPath;
 
     await showModalBottomSheet(
       context: context,
@@ -660,17 +686,34 @@ class _ItemRow extends ConsumerWidget {
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        final icon = await showIconPicker(ctx, current: selectedIcon, themeColor: themeColor);
-                        if (icon != null) setSheetState(() => selectedIcon = icon);
+                        final result = await showIconPicker(ctx, 
+                          current: selectedIcon, 
+                          currentPath: selectedIconPath,
+                          themeColor: themeColor
+                        );
+                        if (result != null) {
+                          setSheetState(() {
+                            if (result['icon'] != null) {
+                              selectedIcon = result['icon'];
+                              selectedIconPath = null;
+                            } else if (result['path'] != null) {
+                              selectedIconPath = result['path'];
+                              selectedIcon = null;
+                            }
+                          });
+                        }
                       },
                       child: Container(
                         width: 56, height: 56,
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: themeColor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: themeColor.withOpacity(0.3)),
                         ),
-                        child: Icon(selectedIcon, color: themeColor, size: 28),
+                        child: selectedIconPath != null
+                            ? Image.asset(selectedIconPath!, fit: BoxFit.contain)
+                            : Icon(selectedIcon ?? Icons.category_rounded, color: themeColor, size: 28),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -696,7 +739,8 @@ class _ItemRow extends ConsumerWidget {
                       ref.read(categoryProvider.notifier).editItem(
                         item.id,
                         ctrl.text.trim().isEmpty ? item.name : ctrl.text.trim(),
-                        selectedIcon.codePoint,
+                        selectedIcon?.codePoint,
+                        iconPath: selectedIconPath,
                       );
                       Navigator.pop(ctx);
                     },

@@ -4,6 +4,7 @@ import 'package:urmoney/core/theme/app_colors.dart';
 import 'package:urmoney/features/books/presentation/providers/book_provider.dart';
 import 'package:urmoney/features/transactions/data/models/transaction_model.dart';
 import 'package:urmoney/features/transactions/data/models/transfer_model.dart';
+import 'package:urmoney/features/transactions/data/models/category_model.dart';
 import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
 import 'package:urmoney/features/transactions/presentation/providers/transaction_provider.dart';
@@ -473,7 +474,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final wallets = ref.watch(walletProvider).value ?? [];
     final wallet = wallets.firstWhere((w) => w.id == t.walletId, orElse: () => WalletModel(id: '', userId: '', name: 'Wallet?', type: '', balance: 0, createdAt: DateTime.now()));
 
-    IconData icon = Icons.help_outline;
+    IconData? icon;
+    String? iconPath;
     Color color = Colors.grey;
     String label = 'Unknown';
     String subLabel = '';
@@ -488,8 +490,12 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       );
       if (item.id.isNotEmpty) {
         icon = item.icon;
+        iconPath = item.iconPath;
         label = item.name;
-        final parent = catState.allParents.firstWhere((p) => p.id == item.categoryId, orElse: () => catState.allParents.first);
+        final parent = catState.allParents.firstWhere(
+          (p) => p.id == item.categoryId, 
+          orElse: () => catState.allParents.isNotEmpty ? catState.allParents.first : CategoryModel(id: '', userId: '', name: '', type: '', icon: Icons.category_rounded, color: Colors.grey)
+        );
         color = parent.color;
         subLabel = parent.name;
       }
@@ -512,7 +518,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-          child: Icon(icon, color: color, size: 24),
+          child: iconPath != null 
+              ? Image.asset(iconPath, width: 24, height: 24)
+              : Icon(icon ?? Icons.help_outline, color: color, size: 24),
         ),
         title: Row(
           children: [

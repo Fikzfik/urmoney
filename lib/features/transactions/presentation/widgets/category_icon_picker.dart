@@ -2,15 +2,41 @@ import 'package:flutter/material.dart';
 
 // Curated list of icons users can choose for their category items
 const List<Map<String, dynamic>> kAvailableIcons = [
-  // Food & Drink
-  {'icon': Icons.fastfood_rounded, 'label': 'Fast Food'},
-  {'icon': Icons.rice_bowl_rounded, 'label': 'Nasi'},
+  // New Category Icons
+  {'iconPath': 'assets/images/category_icons/burger.png', 'label': 'Burger'},
+  {'iconPath': 'assets/images/category_icons/mi.png', 'label': 'Mi'},
+  {'iconPath': 'assets/images/category_icons/minuman.png', 'label': 'Minuman'},
+  {'iconPath': 'assets/images/category_icons/dessert.png', 'label': 'Dessert'},
+  {'iconPath': 'assets/images/category_icons/nasi.png', 'label': 'Nasi'},
+  {'iconPath': 'assets/images/category_icons/roti.png', 'label': 'Roti'},
+  {'iconPath': 'assets/images/category_icons/fast_food.png', 'label': 'Fast Food'},
+  {'iconPath': 'assets/images/category_icons/pizza.png', 'label': 'Pizza'},
+  {'iconPath': 'assets/images/category_icons/lauk_1.png', 'label': 'Lauk'},
+  {'iconPath': 'assets/images/category_icons/donat_1.png', 'label': 'Donat'},
+  {'iconPath': 'assets/images/category_icons/snack_1.png', 'label': 'Snack'},
+  {'iconPath': 'assets/images/category_icons/permen.png', 'label': 'Permen'},
+  {'iconPath': 'assets/images/category_icons/lauk_2.png', 'label': 'Lauk 2'},
+  {'iconPath': 'assets/images/category_icons/donat_2.png', 'label': 'Donat 2'},
+  {'iconPath': 'assets/images/category_icons/snack_2.png', 'label': 'Snack 2'},
+  {'iconPath': 'assets/images/category_icons/kue.png', 'label': 'Kue'},
+  {'iconPath': 'assets/images/category_icons/ayam_1.png', 'label': 'Ayam'},
+  {'iconPath': 'assets/images/category_icons/sup_1.png', 'label': 'Sup'},
+  {'iconPath': 'assets/images/category_icons/buah.png', 'label': 'Buah'},
+  {'iconPath': 'assets/images/category_icons/minuman_panas.png', 'label': 'Minuman Panas'},
+  {'iconPath': 'assets/images/category_icons/ayam_2.png', 'label': 'Ayam 2'},
+  {'iconPath': 'assets/images/category_icons/sup_2.png', 'label': 'Sup 2'},
+  {'iconPath': 'assets/images/category_icons/sushi.png', 'label': 'Sushi'},
+  {'iconPath': 'assets/images/category_icons/steak_bakar.png', 'label': 'Steak'},
+
+  // Food & Drink (Standard Icons)
+  {'icon': Icons.fastfood_rounded, 'label': 'Fast Food (Standard)'},
+  {'icon': Icons.rice_bowl_rounded, 'label': 'Nasi (Standard)'},
   {'icon': Icons.dinner_dining_rounded, 'label': 'Dinner'},
   {'icon': Icons.eco_rounded, 'label': 'Diet'},
   {'icon': Icons.icecream_rounded, 'label': 'Cemilan'},
   {'icon': Icons.local_cafe_rounded, 'label': 'Kopi'},
   {'icon': Icons.restaurant_rounded, 'label': 'Restoran'},
-  {'icon': Icons.local_pizza_rounded, 'label': 'Pizza'},
+  {'icon': Icons.local_pizza_rounded, 'label': 'Pizza (Standard)'},
   // Transport
   {'icon': Icons.directions_bus_rounded, 'label': 'Bus'},
   {'icon': Icons.local_gas_station_rounded, 'label': 'Bensin'},
@@ -65,11 +91,13 @@ const List<Map<String, dynamic>> kAvailableIcons = [
 /// Returns the selected [IconData] via [Navigator.pop].
 class CategoryIconPicker extends StatefulWidget {
   final IconData? currentIcon;
+  final String? currentIconPath;
   final Color themeColor;
 
   const CategoryIconPicker({
     super.key,
     this.currentIcon,
+    this.currentIconPath,
     required this.themeColor,
   });
 
@@ -129,21 +157,29 @@ class _CategoryIconPickerState extends State<CategoryIconPicker> {
               itemCount: filtered.length,
               itemBuilder: (context, index) {
                 final entry = filtered[index];
-                final icon = entry['icon'] as IconData;
-                final isSelected = icon == widget.currentIcon;
+                final icon = entry['icon'] as IconData?;
+                final path = entry['iconPath'] as String?;
+                
+                final isSelected = path != null 
+                    ? path == widget.currentIconPath 
+                    : icon == widget.currentIcon;
+
                 return GestureDetector(
-                  onTap: () => Navigator.pop(context, icon),
+                  onTap: () => Navigator.pop(context, {'icon': icon, 'path': path}),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         width: 50, height: 50,
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: isSelected ? widget.themeColor : Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: isSelected ? widget.themeColor : Colors.grey.shade200),
                         ),
-                        child: Icon(icon, size: 26, color: isSelected ? Colors.white : Colors.grey.shade600),
+                        child: path != null 
+                            ? Image.asset(path, fit: BoxFit.contain)
+                            : Icon(icon, size: 26, color: isSelected ? Colors.white : Colors.grey.shade600),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -166,11 +202,11 @@ class _CategoryIconPickerState extends State<CategoryIconPicker> {
 }
 
 /// Convenience helper to show the icon picker and await the result.
-Future<IconData?> showIconPicker(BuildContext context, {IconData? current, required Color themeColor}) {
-  return showModalBottomSheet<IconData>(
+Future<Map<String, dynamic>?> showIconPicker(BuildContext context, {IconData? current, String? currentPath, required Color themeColor}) {
+  return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => CategoryIconPicker(currentIcon: current, themeColor: themeColor),
+    builder: (_) => CategoryIconPicker(currentIcon: current, currentIconPath: currentPath, themeColor: themeColor),
   );
 }

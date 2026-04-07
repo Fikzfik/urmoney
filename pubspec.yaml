@@ -78,6 +78,7 @@ flutter:
     - assets/images/onboarding_2.png
     - assets/images/onboarding_3.png
     - assets/images/categories/
+    - assets/images/category_icons/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
