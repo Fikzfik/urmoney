@@ -152,7 +152,7 @@ class _CategoryIconPickerState extends State<CategoryIconPicker> {
                 crossAxisCount: 5,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 0.95,
+                childAspectRatio: 1.0,
               ),
               itemCount: filtered.length,
               itemBuilder: (context, index) {
@@ -180,14 +180,6 @@ class _CategoryIconPickerState extends State<CategoryIconPicker> {
                         child: path != null 
                             ? Image.asset(path, fit: BoxFit.contain)
                             : Icon(icon, size: 26, color: isSelected ? Colors.white : Colors.grey.shade600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        entry['label'] as String,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 10, color: isSelected ? widget.themeColor : Colors.grey.shade600),
                       ),
                     ],
                   ),
