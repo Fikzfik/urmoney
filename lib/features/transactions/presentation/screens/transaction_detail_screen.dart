@@ -10,6 +10,7 @@ import 'package:urmoney/features/transactions/data/models/category_model.dart';
 import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
 import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
+import 'package:urmoney/core/theme/wallet_styles.dart';
 
 class TransactionDetailScreen extends ConsumerStatefulWidget {
   final TransactionModel? transaction;
@@ -285,18 +286,28 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         child: DropdownButton<String>(
           value: selectedId,
           isExpanded: true,
-          items: wallets.map((w) => DropdownMenuItem(
-            value: w.id,
-            child: Row(
-              children: [
-                Icon(_getWalletIcon(w.type), size: 20, color: AppColors.primary),
-                const SizedBox(width: 12),
-                Text(w.name, style: const TextStyle(fontSize: 15)),
-                const Spacer(),
-                Text(formatRp(w.balance), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              ],
-            ),
-          )).toList(),
+          items: wallets.map((w) {
+            final style = WalletStyles.getStyle(w.name, w.type);
+            return DropdownMenuItem(
+              value: w.id,
+              child: Row(
+                children: [
+                   if (style.logoPath != null)
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                      child: Image.asset(style.logoPath!, width: 20, height: 20),
+                    )
+                  else
+                    Icon(_getWalletIcon(w.type), size: 20, color: style.gradient.first),
+                  const SizedBox(width: 12),
+                  Text(w.name, style: const TextStyle(fontSize: 15)),
+                  const Spacer(),
+                  Text(formatRp(w.balance), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            );
+          }).toList(),
           onChanged: onChanged,
         ),
       ),

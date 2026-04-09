@@ -28,6 +28,35 @@ const List<Map<String, dynamic>> kAvailableIcons = [
   {'iconPath': 'assets/images/categories/makanan/food_23.png', 'label': 'Makanan 23'},
   {'iconPath': 'assets/images/categories/makanan/food_24.png', 'label': 'Makanan 24'},
 
+  // Shopping Icons
+  {'iconPath': 'assets/images/categories/belanja/shop_1.png', 'label': 'Belanja 1'},
+  {'iconPath': 'assets/images/categories/belanja/shop_2.png', 'label': 'Belanja 2'},
+  {'iconPath': 'assets/images/categories/belanja/shop_3.png', 'label': 'Belanja 3'},
+  {'iconPath': 'assets/images/categories/belanja/shop_4.png', 'label': 'Belanja 4'},
+  {'iconPath': 'assets/images/categories/belanja/shop_5.png', 'label': 'Belanja 5'},
+  {'iconPath': 'assets/images/categories/belanja/shop_6.png', 'label': 'Belanja 6'},
+  {'iconPath': 'assets/images/categories/belanja/shop_7.png', 'label': 'Belanja 7'},
+  {'iconPath': 'assets/images/categories/belanja/shop_8.png', 'label': 'Belanja 8'},
+  {'iconPath': 'assets/images/categories/belanja/shop_9.png', 'label': 'Belanja 9'},
+  {'iconPath': 'assets/images/categories/belanja/shop_10.png', 'label': 'Belanja 10'},
+  {'iconPath': 'assets/images/categories/belanja/shop_11.png', 'label': 'Belanja 11'},
+  {'iconPath': 'assets/images/categories/belanja/shop_12.png', 'label': 'Belanja 12'},
+  {'iconPath': 'assets/images/categories/belanja/shop_13.png', 'label': 'Belanja 13'},
+  {'iconPath': 'assets/images/categories/belanja/shop_14.png', 'label': 'Belanja 14'},
+  {'iconPath': 'assets/images/categories/belanja/shop_15.png', 'label': 'Belanja 15'},
+
+  // Drink Icons
+  {'iconPath': 'assets/images/categories/minuman/drink_1.png', 'label': 'Minuman 1'},
+  {'iconPath': 'assets/images/categories/minuman/drink_2.png', 'label': 'Minuman 2'},
+  {'iconPath': 'assets/images/categories/minuman/drink_3.png', 'label': 'Minuman 3'},
+  {'iconPath': 'assets/images/categories/minuman/drink_4.png', 'label': 'Minuman 4'},
+  {'iconPath': 'assets/images/categories/minuman/drink_5.png', 'label': 'Minuman 5'},
+  {'iconPath': 'assets/images/categories/minuman/drink_6.png', 'label': 'Minuman 6'},
+  {'iconPath': 'assets/images/categories/minuman/drink_7.png', 'label': 'Minuman 7'},
+  {'iconPath': 'assets/images/categories/minuman/drink_8.png', 'label': 'Minuman 8'},
+  {'iconPath': 'assets/images/categories/minuman/drink_9.png', 'label': 'Minuman 9'},
+  {'iconPath': 'assets/images/categories/minuman/drink_10.png', 'label': 'Minuman 10'},
+
   // Food & Drink (Standard Icons)
   {'icon': Icons.fastfood_rounded, 'label': 'Fast Food (Standard)'},
   {'icon': Icons.rice_bowl_rounded, 'label': 'Nasi (Standard)'},

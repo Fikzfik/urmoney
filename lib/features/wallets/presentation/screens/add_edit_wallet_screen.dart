@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/core/theme/app_colors.dart';
+import 'package:urmoney/core/theme/wallet_styles.dart';
 import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
 
@@ -138,52 +139,95 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
   }
 
   Widget _buildHeader() {
-    final gradColors = AppColors.walletGradients[selectedType] ?? [AppColors.primary, AppColors.accent];
+    final style = WalletStyles.getStyle(nameCtrl.text, selectedType);
     return Container(
-      decoration: BoxDecoration(gradient: LinearGradient(colors: gradColors, begin: Alignment.topLeft, end: Alignment.bottomRight)),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 20),
-          child: Column(
-            children: [
-              Row(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: style.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+      ),
+      child: Stack(
+        children: [
+          if (style.backgroundImagePath != null)
+            Positioned.fill(
+              child: Image.asset(style.backgroundImagePath!, fit: BoxFit.cover),
+            ),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+              child: Column(
                 children: [
-                  IconButton(
-                    icon: Icon(_currentStep == 0 ? Icons.close_rounded : Icons.arrow_back_ios_new_rounded, color: Colors.white),
-                    onPressed: _prevStep,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(_currentStep == 0 ? Icons.close_rounded : Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                        onPressed: _prevStep,
+                      ),
+                      Text(
+                        widget.wallet == null ? 'Tambah Dompet' : 'Edit Dompet',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
                   ),
-                  Expanded(
-                    child: Text(
-                      widget.wallet == null ? 'Tambah Dompet' : 'Edit Dompet',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                      textAlign: TextAlign.center,
+                  const SizedBox(height: 12),
+                  // Progress indicator dots
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(3, (i) {
+                      final isCurrent = _currentStep == i;
+                      final isDone = _currentStep > i;
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: isCurrent ? 24 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isDone || isCurrent ? Colors.white : Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 32),
+                  // Branded Preview Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        if (style.logoPath != null)
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                            child: Image.asset(style.logoPath!, width: 24, height: 24),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                            child: Icon(_types.firstWhere((t) => t['key'] == selectedType, orElse: () => _types.first)['icon'] as IconData,
+                                color: Colors.white, size: 24),
+                          ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(nameCtrl.text.isEmpty ? 'Nama Dompet' : nameCtrl.text,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
+                                  overflow: TextOverflow.ellipsis),
+                              Text(_types.firstWhere((t) => t['key'] == selectedType, orElse: () => _types.first)['name'] as String,
+                                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 48),
                 ],
               ),
-              const SizedBox(height: 12),
-              // Progress indicator dots
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
-                  final isDone = _currentStep > i;
-                  final isCurrent = _currentStep == i;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: isCurrent ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: isDone || isCurrent ? Colors.white : Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -211,7 +255,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
             itemCount: _types.length,
             itemBuilder: (context, i) {
               final t = _types[i];
-              final tColors = AppColors.walletGradients[t['key']] ?? [AppColors.primary, AppColors.accent];
+              final style = WalletStyles.getStyle('', t['key'] as String);
               return GestureDetector(
                 onTap: () {
                   setState(() => selectedType = t['key'] as String);
@@ -221,15 +265,15 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: tColors.first.withOpacity(0.12), blurRadius: 15, offset: const Offset(0, 6))],
+                    boxShadow: [BoxShadow(color: style.gradient.first.withOpacity(0.12), blurRadius: 15, offset: const Offset(0, 6))],
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(gradient: LinearGradient(colors: tColors), shape: BoxShape.circle),
-                        child: Icon(t['icon'] as IconData, color: Colors.white, size: 24),
+                        decoration: BoxDecoration(gradient: LinearGradient(colors: style.gradient), shape: BoxShape.circle),
+                        child: Icon(t['icon'] as IconData, color: style.textColor, size: 24),
                       ),
                       const SizedBox(height: 12),
                       Text(t['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -247,7 +291,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
   // ─── STEP 2: ITEM PICKER ───────────────────────────────────────────
   Widget _buildItemPicker() {
     final list = _suggestions[selectedType] ?? [];
-    final tColors = AppColors.walletGradients[selectedType] ?? [AppColors.primary, AppColors.accent];
+    final style = WalletStyles.getStyle('', selectedType);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -285,7 +329,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
                     ),
                     child: Center(
                       child: Text(s, 
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: tColors.first),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: style.gradient.first),
                           textAlign: TextAlign.center),
                     ),
                   ),
@@ -316,7 +360,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
 
   // ─── STEP 3: DETAILS FORM ──────────────────────────────────────────
   Widget _buildDetailsForm() {
-    final gradColors = AppColors.walletGradients[selectedType] ?? [AppColors.primary, AppColors.accent];
+    final style = WalletStyles.getStyle(nameCtrl.text, selectedType);
     final typeData = _types.firstWhere((t) => t['key'] == selectedType);
 
     return SingleChildScrollView(
@@ -336,8 +380,8 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(gradient: LinearGradient(colors: gradColors), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(typeData['icon'] as IconData, color: Colors.white, size: 20),
+                  decoration: BoxDecoration(gradient: LinearGradient(colors: style.gradient), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(typeData['icon'] as IconData, color: style.textColor, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -360,31 +404,31 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
           const SizedBox(height: 24),
           _sectionTitle('Konfigurasi Lengkap'),
           const SizedBox(height: 16),
-          _buildField('Nama Dompet', nameCtrl, Icons.edit_note_rounded, gradColors.first),
+          _buildField('Nama Dompet', nameCtrl, Icons.edit_note_rounded, style.gradient.first, onChanged: (v) => setState(() {})),
           
           if (selectedType == 'bankmobile') ...[
             const SizedBox(height: 20),
-            _buildField('Jumlah Pajak / Adm (Rp)', taxAmountCtrl, Icons.money_off_rounded, gradColors.first, keyboardType: TextInputType.number),
+            _buildField('Jumlah Pajak / Adm (Rp)', taxAmountCtrl, Icons.money_off_rounded, style.gradient.first, keyboardType: TextInputType.number),
             const SizedBox(height: 12),
-            _buildField('Tgl Potong (1-31)', taxDayCtrl, Icons.calendar_month_rounded, gradColors.first, keyboardType: TextInputType.number),
+            _buildField('Tgl Potong (1-31)', taxDayCtrl, Icons.calendar_month_rounded, style.gradient.first, keyboardType: TextInputType.number),
           ],
 
           if (selectedType == 'digitalbank') ...[
             const SizedBox(height: 20),
-            _buildField('Bunga / Tabungan (%)', interestRateCtrl, Icons.percent_rounded, gradColors.first, keyboardType: TextInputType.number),
+            _buildField('Bunga / Tabungan (%)', interestRateCtrl, Icons.percent_rounded, style.gradient.first, keyboardType: TextInputType.number),
             const SizedBox(height: 16),
             Text('Jadwal Pencairan', style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _radioCard('harian', 'Harian', Icons.wb_sunny_rounded, gradColors.first)),
+                Expanded(child: _radioCard('harian', 'Harian', Icons.wb_sunny_rounded, style.gradient.first)),
                 const SizedBox(width: 12),
-                Expanded(child: _radioCard('bulanan', 'Bulanan', Icons.calendar_month_rounded, gradColors.first)),
+                Expanded(child: _radioCard('bulanan', 'Bulanan', Icons.calendar_month_rounded, style.gradient.first)),
               ],
             ),
             if (payoutSchedule == 'bulanan') ...[
               const SizedBox(height: 12),
-              _buildField('Tgl Pencairan (1-31)', payoutDayCtrl, Icons.calendar_today_rounded, gradColors.first, keyboardType: TextInputType.number),
+              _buildField('Tgl Pencairan (1-31)', payoutDayCtrl, Icons.calendar_today_rounded, style.gradient.first, keyboardType: TextInputType.number),
             ],
           ],
 
@@ -393,9 +437,9 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
             width: double.infinity,
             height: 56,
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: gradColors),
+              gradient: LinearGradient(colors: style.gradient),
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: gradColors.last.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))],
+              boxShadow: [BoxShadow(color: style.gradient.last.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))],
             ),
             child: ElevatedButton(
               onPressed: _save,
@@ -404,8 +448,8 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
                 shadowColor: Colors.transparent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: const Text('SIMPAN DOMPET',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.2, color: Colors.white)),
+              child: Text('SIMPAN DOMPET',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.2, color: style.textColor)),
             ),
           ),
         ],
@@ -417,7 +461,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
     return Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary));
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, IconData icon, Color color, {TextInputType? keyboardType}) {
+  Widget _buildField(String label, TextEditingController ctrl, IconData icon, Color color, {TextInputType? keyboardType, ValueChanged<String>? onChanged}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -427,6 +471,7 @@ class _AddEditWalletScreenState extends ConsumerState<AddEditWalletScreen> {
       child: TextField(
         controller: ctrl,
         keyboardType: keyboardType,
+        onChanged: onChanged,
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: color, size: 20),
           hintText: label,

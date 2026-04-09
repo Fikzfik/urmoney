@@ -8,6 +8,7 @@ import 'package:urmoney/features/books/presentation/providers/book_provider.dart
 import 'package:urmoney/features/transactions/presentation/providers/category_provider.dart';
 import 'package:urmoney/features/transactions/presentation/providers/transaction_provider.dart';
 import 'package:urmoney/features/transactions/data/models/transaction_model.dart';
+import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
 
 class AnalyticsTab extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab>
   late TabController _tabController;
   late AnimationController _animController;
   late Animation<double> _animation;
+  Set<String> _expandedCategoryIds = {};
 
   String _filterType = 'Bulan Ini';
   DateTime? _startDate;
@@ -356,7 +358,7 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab>
               const SizedBox(height: 20),
               _buildDonutChart(sorted, catState, total, type),
               const SizedBox(height: 20),
-              _buildTopCategories(sorted, catState, total),
+              _buildTopCategories(sorted, catState, total, filtered),
             ],
           ),
         );
@@ -554,7 +556,7 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab>
     );
   }
 
-  Widget _buildTopCategories(List<MapEntry<String, double>> sorted, CategoryState catState, double total) {
+  Widget _buildTopCategories(List<MapEntry<String, double>> sorted, CategoryState catState, double total, List<TransactionModel> transactions) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -564,25 +566,95 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab>
         children: [
           const Text('Top Kategori', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
-          ...sorted.take(5).map((e) {
+          ...sorted.take(10).map((e) {
             final cat = catState.allParents.firstWhere((c) => c.id == e.key, orElse: () => catState.allParents.first);
             final pct = (e.value / total * 100).toStringAsFixed(1);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Icon(cat.icon, color: cat.color, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(cat.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(formatRp(e.value), style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('$pct%', style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
-                    ],
+            final isExpanded = _expandedCategoryIds.contains(e.key);
+
+            // Group transactions for this category by item
+            final catTransactions = transactions.where((t) => t.categoryId == e.key).toList();
+            final Map<String, double> itemTotals = {};
+            for (var t in catTransactions) {
+              final itemId = t.categoryItemId ?? 'unspecified';
+              itemTotals[itemId] = (itemTotals[itemId] ?? 0) + t.amount;
+            }
+            final sortedItems = itemTotals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+            return Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedCategoryIds.remove(e.key);
+                      } else {
+                        _expandedCategoryIds.add(e.key);
+                      }
+                    });
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: cat.color.withOpacity(0.1), shape: BoxShape.circle),
+                          child: Icon(cat.icon, color: cat.color, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(cat.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(formatRp(e.value), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('$pct%', style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
+                          ],
+                        ),
+                        const SizedBox(width: 8),
+                        AnimatedRotation(
+                          turns: isExpanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade400, size: 20),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+                if (isExpanded)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 44, top: 4, bottom: 12),
+                    child: Column(
+                      children: sortedItems.map((itemEntry) {
+                        final item = catState.itemsFor(e.key, cat.type == 'expense').firstWhere(
+                          (i) => i.id == itemEntry.key,
+                          orElse: () => CategoryItemModel(id: 'unspecified', categoryId: e.key, name: 'Lainnya', icon: Icons.help_outline)
+                        );
+                        final itemPct = (itemEntry.value / e.value * 100).toStringAsFixed(1);
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              if (item.iconPath != null)
+                                Image.asset(item.iconPath!, width: 16, height: 16)
+                              else
+                                Icon(item.icon ?? Icons.circle, color: Colors.grey, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(item.name, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                              ),
+                              Text(formatRp(itemEntry.value), style: TextStyle(fontSize: 13, color: Colors.grey.shade800, fontWeight: FontWeight.w500)),
+                              const SizedBox(width: 8),
+                              Text('$itemPct%', style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                Divider(height: 1, color: Colors.grey.shade50),
+              ],
             );
           }),
         ],

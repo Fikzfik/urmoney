@@ -58,6 +58,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   riverpod_generator: ^4.0.3
   build_runner: ^2.13.1
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -79,7 +80,13 @@ flutter:
     - assets/images/onboarding_3.png
     - assets/images/categories/
     - assets/images/categories/makanan/
+    - assets/images/categories/belanja/
+    - assets/images/categories/minuman/
+    - assets/images/ewallet/
+    - assets/images/ewallet/card/
+    - assets/images/logo/
     - assets/images/category_icons/
+
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
@@ -108,3 +115,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo/logo.png"
+  adaptive_icon_background: "#1565C0"
+  adaptive_icon_foreground: "assets/images/logo/logo.png"
