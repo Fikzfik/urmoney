@@ -22,10 +22,12 @@ class WalletStyles {
     'gopay': WalletStyle(
       gradient: [Color(0xFF00AED6), Color(0xFF0081A0)],
       logoPath: 'assets/images/ewallet/logo_gopay.png',
+      backgroundImagePath: 'assets/images/ewallet/card/gopay_card.png',
     ),
     'ovo': WalletStyle(
       gradient: [Color(0xFF4C2A86), Color(0xFF361D5F)],
       logoPath: 'assets/images/ewallet/logo_ovo.png',
+      backgroundImagePath: 'assets/images/ewallet/card/ovo_card.png',
     ),
     'dana': WalletStyle(
       gradient: [Color(0xFF118EEA), Color(0xFF0D6DB3)],
@@ -35,10 +37,27 @@ class WalletStyles {
     'shopeepay': WalletStyle(
       gradient: [Color(0xFFEE4D2D), Color(0xFFB23922)],
       logoPath: 'assets/images/ewallet/logo_spay.png',
+      backgroundImagePath: 'assets/images/ewallet/card/shopeepay_card.png',
+    ),
+    'shopee': WalletStyle(
+      gradient: [Color(0xFFEE4D2D), Color(0xFFB23922)],
+      logoPath: 'assets/images/ewallet/logo_spay.png',
+      backgroundImagePath: 'assets/images/ewallet/card/shopeepay_card.png',
+    ),
+    'spay': WalletStyle(
+      gradient: [Color(0xFFEE4D2D), Color(0xFFB23922)],
+      logoPath: 'assets/images/ewallet/logo_spay.png',
+      backgroundImagePath: 'assets/images/ewallet/card/shopeepay_card.png',
     ),
     'linkaja': WalletStyle(
       gradient: [Color(0xFFE61C30), Color(0xFFA51422)],
       logoPath: 'assets/images/ewallet/logo_linkaja.png',
+      backgroundImagePath: 'assets/images/ewallet/card/linkaja_card.png',
+    ),
+    'link': WalletStyle(
+      gradient: [Color(0xFFE61C30), Color(0xFFA51422)],
+      logoPath: 'assets/images/ewallet/logo_linkaja.png',
+      backgroundImagePath: 'assets/images/ewallet/card/linkaja_card.png',
     ),
 
     // Digital Banks
@@ -82,7 +101,7 @@ class WalletStyles {
   };
 
   static WalletStyle getStyle(String name, String type) {
-    final lowerName = name.toLowerCase();
+    final lowerName = name.toLowerCase().replaceAll(' ', '').replaceAll('-', '');
     
     // Check for exact or partial matches in keys
     for (final brand in _brandStyles.keys) {
