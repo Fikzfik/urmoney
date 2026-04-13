@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:urmoney/features/transactions/data/models/category_item_model.dart';
@@ -558,17 +559,75 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
 // A single item row inside a parent card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ItemRow extends ConsumerWidget {
+class _ItemRow extends ConsumerStatefulWidget {
   final CategoryItemModel item;
   final bool isExpense;
   final Color themeColor;
   const _ItemRow({required this.item, required this.isExpense, required this.themeColor});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ItemRow> createState() => _ItemRowState();
+}
+
+class _ItemRowState extends ConsumerState<_ItemRow> {
+  Timer? _scrollTimer;
+
+  void _stopScrollTimer() {
+    _scrollTimer?.cancel();
+    _scrollTimer = null;
+  }
+
+  void _startScrollTimer(ScrollableState scrollable, double scrollDirection) {
+    if (_scrollTimer != null) return;
+    
+    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      final pos = scrollable.position;
+      final newOffset = (pos.pixels + (scrollDirection * 15)).clamp(
+        pos.minScrollExtent,
+        pos.maxScrollExtent,
+      );
+      pos.jumpTo(newOffset);
+    });
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    final scrollable = Scrollable.of(context);
+    final renderBox = scrollable.context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final scrollOffset = renderBox.localToGlobal(Offset.zero);
+    final scrollHeight = renderBox.size.height;
+    final dy = details.globalPosition.dy;
+
+    // Trigger scrolling when within 15% of the top or bottom of the scrollable area
+    const thresholdPercent = 0.15;
+    final edgeHeight = scrollHeight * thresholdPercent;
+
+    if (dy < scrollOffset.dy + edgeHeight) {
+      // Scroll Up
+      _startScrollTimer(scrollable, -1.0);
+    } else if (dy > scrollOffset.dy + scrollHeight - edgeHeight) {
+      // Scroll Down
+      _startScrollTimer(scrollable, 1.0);
+    } else {
+      _stopScrollTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopScrollTimer();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return LongPressDraggable<CategoryItemModel>(
-      data: item,
+      data: widget.item,
       axis: Axis.vertical,
+      onDragUpdate: _handleDragUpdate,
+      onDragEnd: (_) => _stopScrollTimer(),
+      onDraggableCanceled: (_, __) => _stopScrollTimer(),
       feedback: Material(
         color: Colors.transparent,
         child: Container(
@@ -578,15 +637,15 @@ class _ItemRow extends ConsumerWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 4))],
-            border: Border.all(color: themeColor.withOpacity(0.5)),
+            border: Border.all(color: widget.themeColor.withOpacity(0.5)),
           ),
           child: Row(
             children: [
-              item.iconPath != null 
-                  ? Image.asset(item.iconPath!, width: 20, height: 20)
-                  : Icon(item.icon ?? Icons.help_outline, color: themeColor),
+              widget.item.iconPath != null 
+                  ? Image.asset(widget.item.iconPath!, width: 20, height: 20)
+                  : Icon(widget.item.icon ?? Icons.help_outline, color: widget.themeColor),
               const SizedBox(width: 14),
-              Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(widget.item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -600,6 +659,8 @@ class _ItemRow extends ConsumerWidget {
   }
 
   Widget _buildItemContent(BuildContext context, WidgetRef ref) {
+    final item = widget.item;
+    final themeColor = widget.themeColor;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -639,7 +700,7 @@ class _ItemRow extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Item?'),
-        content: Text('Hapus "${item.name}" secara permanen?'),
+        content: Text('Hapus "${widget.item.name}" secara permanen?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
           ElevatedButton(
@@ -651,11 +712,13 @@ class _ItemRow extends ConsumerWidget {
       ),
     );
     if (confirmed == true) {
-      ref.read(categoryProvider.notifier).deleteItem(item.id);
+      ref.read(categoryProvider.notifier).deleteItem(widget.item.id);
     }
   }
 
   Future<void> _showEditDialog(BuildContext context, WidgetRef ref) async {
+    final item = widget.item;
+    final themeColor = widget.themeColor;
     final ctrl = TextEditingController(text: item.name);
     IconData? selectedIcon = item.icon;
     String? selectedIconPath = item.iconPath;

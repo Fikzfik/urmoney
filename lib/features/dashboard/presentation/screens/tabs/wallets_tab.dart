@@ -131,36 +131,54 @@ class WalletsTab extends ConsumerWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: style.gradient.last.withOpacity(0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: style.gradient.last.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Stack(
         children: [
-          // Background Image
-          if (style.backgroundImagePath != null)
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Image.asset(style.backgroundImagePath!, fit: BoxFit.cover),
-              ),
-            ),
-          
-          // Optional Brand Logo in background (only if no background image)
-          if (style.backgroundImagePath == null && style.logoPath != null)
+          // Large Background Brand Logo with Depth effect
+          if (style.logoPath != null) ...[
             Positioned(
-              right: -10,
-              bottom: -10,
-              child: Opacity(
-                opacity: 0.1,
-                child: Image.asset(style.logoPath!, width: 140, height: 140, fit: BoxFit.contain),
+              right: -22,
+              bottom: -22,
+              child: Transform.rotate(
+                angle: -0.15,
+                child: Opacity(
+                  opacity: 0.1,
+                  child: Image.asset(
+                    style.logoPath!,
+                    width: 170,
+                    height: 170,
+                    fit: BoxFit.contain,
+                    color: Colors.black,
+                    colorBlendMode: BlendMode.srcIn,
+                  ),
+                ),
               ),
             ),
+            Positioned(
+              right: -20,
+              bottom: -20,
+              child: Transform.rotate(
+                angle: -0.15,
+                child: Opacity(
+                  opacity: 0.15,
+                  child: Image.asset(
+                    style.logoPath!,
+                    width: 170,
+                    height: 170,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ],
           
           Padding(
             padding: const EdgeInsets.all(24),

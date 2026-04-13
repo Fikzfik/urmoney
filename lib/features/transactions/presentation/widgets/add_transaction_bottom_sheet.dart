@@ -12,6 +12,9 @@ import 'package:urmoney/features/transactions/presentation/providers/transaction
 import 'package:urmoney/features/transactions/presentation/screens/category_settings_screen.dart';
 import 'package:urmoney/features/wallets/data/models/wallet_model.dart';
 import 'package:urmoney/features/wallets/presentation/providers/wallet_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:urmoney/core/services/ai_service.dart';
+import 'dart:typed_data';
 
 String _evalMath(String expr) {
   try {
@@ -84,7 +87,7 @@ String _updateAmountForm(String amount, String val) {
 }
 
 class AddTransactionBottomSheet extends StatelessWidget {
-  const AddTransactionBottomSheet({super.key});
+  AddTransactionBottomSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +123,7 @@ class AddTransactionBottomSheet extends StatelessWidget {
                 Tab(text: 'Transfer')
               ],
             ),
-            const Expanded(
+            Expanded(
               child: TabBarView(
                 children: [
                   _TransactionForm(isExpense: true),
@@ -138,7 +141,7 @@ class AddTransactionBottomSheet extends StatelessWidget {
 
 class _TransactionForm extends ConsumerStatefulWidget {
   final bool isExpense;
-  const _TransactionForm({required this.isExpense});
+  _TransactionForm({required this.isExpense});
 
   @override
   ConsumerState<_TransactionForm> createState() => _TransactionFormState();
@@ -349,28 +352,69 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
         ? <CategoryItemModel>[]
         : state.itemsFor(parents[activeIdx].id, widget.isExpense);
 
-    return Column(
+    return Stack(
       children: [
-        _buildChipsRow(context, parents, activeIdx, themeColor),
-        Expanded(child: _buildItemsGrid(items, themeColor)),
-        _CustomKeypad(
-          amount: _amount,
-          noteController: _noteController,
-          onKeypadTap: _onKeypadTap,
-          themeColor: themeColor,
-          selectedWallet: _selectedWallet ??
-              (ref.watch(walletProvider).value?.isNotEmpty == true
-                  ? ref.watch(walletProvider).value!.first
-                  : null),
-          onWalletChanged: (wallet) => setState(() => _selectedWallet = wallet),
-          selectedDate: _selectedDate,
-          onDateChanged: (date) => setState(() => _selectedDate = date),
-          onSave: _handleSave,
+        Column(
+          children: [
+            _buildChipsRow(context, parents, activeIdx, themeColor),
+            Expanded(child: _buildItemsGrid(items, themeColor)),
+            _CustomKeypad(
+              amount: _amount,
+              noteController: _noteController,
+              onKeypadTap: _onKeypadTap,
+              themeColor: themeColor,
+              selectedWallet: _selectedWallet ??
+                  (ref.watch(walletProvider).value?.isNotEmpty == true
+                      ? ref.watch(walletProvider).value!.first
+                      : null),
+              onWalletChanged: (wallet) => setState(() => _selectedWallet = wallet),
+              selectedDate: _selectedDate,
+              onDateChanged: (date) => setState(() => _selectedDate = date),
+              onSave: _handleSave,
+              onScanResult: (result) {
+                setState(() {
+                  _amount = result.total.toStringAsFixed(0);
+                  _noteController.text = result.storeName;
+                  if (result.date != null) {
+                    _selectedDate = result.date!;
+                  }
+                });
+              },
+            ),
+          ],
         ),
+        if (ref.watch(_aiLoadingProvider))
+          Container(
+            color: Colors.black26,
+            child: Center(
+              child: Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      const Text('AI sedang menganalisa...', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Tunggu sebentar ya', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 }
+
+class _AILoadingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void setState(bool val) => state = val;
+}
+final _aiLoadingProvider = NotifierProvider<_AILoadingNotifier, bool>(() => _AILoadingNotifier());
 
 class _TransferForm extends ConsumerStatefulWidget {
   const _TransferForm();
@@ -494,6 +538,15 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
           selectedDate: _selectedDate,
           onDateChanged: (date) => setState(() => _selectedDate = date),
           onSave: _handleSave,
+          onScanResult: (result) {
+            setState(() {
+              _amount = result.total.toStringAsFixed(0);
+              _noteController.text = result.storeName;
+              if (result.date != null) {
+                _selectedDate = result.date!;
+              }
+            });
+          },
         ),
       ],
     );
@@ -650,7 +703,7 @@ class _TransferFormState extends ConsumerState<_TransferForm> {
   }
 }
 
-class _CustomKeypad extends StatefulWidget {
+class _CustomKeypad extends ConsumerStatefulWidget {
   final String amount;
   final TextEditingController noteController;
   final Function(String) onKeypadTap;
@@ -659,6 +712,7 @@ class _CustomKeypad extends StatefulWidget {
   final ValueChanged<WalletModel?> onWalletChanged;
   final DateTime selectedDate;
   final ValueChanged<DateTime> onDateChanged;
+  final ValueChanged<AIReceiptResult> onScanResult;
   final Color themeColor;
 
   const _CustomKeypad({
@@ -671,14 +725,41 @@ class _CustomKeypad extends StatefulWidget {
     required this.onWalletChanged,
     required this.selectedDate,
     required this.onDateChanged,
+    required this.onScanResult,
   });
 
   @override
-  State<_CustomKeypad> createState() => _CustomKeypadState();
+  ConsumerState<_CustomKeypad> createState() => _CustomKeypadState();
 }
 
-class _CustomKeypadState extends State<_CustomKeypad> {
+class _CustomKeypadState extends ConsumerState<_CustomKeypad> {
   bool _showExtras = false;
+
+  Future<void> _handleScan(ImageSource source) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: source, imageQuality: 70);
+    
+    if (image == null) return;
+
+    ref.read(_aiLoadingProvider.notifier).setState(true);
+    try {
+      final bytes = await image.readAsBytes();
+      final result = await ref.read(aiServiceProvider).processReceipt(bytes);
+      
+      if (result != null) {
+        widget.onScanResult(result);
+        setState(() => _showExtras = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal scan: $e')),
+        );
+      }
+    } finally {
+      ref.read(_aiLoadingProvider.notifier).setState(false);
+    }
+  }
 
   String _formatAmount(String amt) {
     if (amt.isEmpty || amt == '0' || !RegExp(r'[0-9]').hasMatch(amt)) return '0';
@@ -738,19 +819,18 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Center(
-                            child: Icon(Icons.photo_library_rounded,
-                                color: Colors.white, size: 24)),
-                      ),
+                    _buildExtraButton(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Ambil Foto',
+                      color: color,
+                      onTap: () => _handleScan(ImageSource.camera),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildExtraButton(
+                      icon: Icons.photo_library_rounded,
+                      label: 'Galeri',
+                      color: color,
+                      onTap: () => _handleScan(ImageSource.gallery),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -763,10 +843,10 @@ class _CustomKeypadState extends State<_CustomKeypad> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.location_on_rounded,
+                            Icon(Icons.auto_awesome_rounded,
                                 color: color, size: 20),
                             const SizedBox(height: 2),
-                            const Text('Lokasi Nonaktifkan',
+                            const Text('AI Scanner',
                                 style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.black87,
@@ -992,6 +1072,36 @@ class _CustomKeypadState extends State<_CustomKeypad> {
         themeColor: widget.themeColor,
         selectedWallet: widget.selectedWallet,
         onWalletChanged: widget.onWalletChanged,
+      ),
+    );
+  }
+
+  Widget _buildExtraButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 70,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(height: 4),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
+          ],
+        ),
       ),
     );
   }

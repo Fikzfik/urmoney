@@ -27,6 +27,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   String _viewType = 'detail';
   DateTime? _selectedDay;
+  bool _isBalanceHidden = false;
 
   void _prevMonth() {
     setState(() => _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1));
@@ -227,17 +228,32 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Total Saldo', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
-                        const SizedBox(height: 4),
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0, end: totalBalance),
-                          duration: const Duration(milliseconds: 1500),
-                          curve: Curves.easeOutExpo,
-                          builder: (context, value, child) {
-                            return Text(formatRp(value),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32, letterSpacing: -0.5));
-                          },
+                        Row(
+                          children: [
+                            Text('Total Saldo', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => setState(() => _isBalanceHidden = !_isBalanceHidden),
+                              child: Icon(
+                                _isBalanceHidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                color: Colors.white.withOpacity(0.75),
+                                size: 18,
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 4),
+                        _isBalanceHidden
+                          ? const Text('Rp •••••••••', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32, letterSpacing: -0.5))
+                          : TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0, end: totalBalance),
+                              duration: const Duration(milliseconds: 1500),
+                              curve: Curves.easeOutExpo,
+                              builder: (context, value, child) {
+                                return Text(formatRp(value),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32, letterSpacing: -0.5));
+                              },
+                            ),
                       ],
                     ),
                   ),

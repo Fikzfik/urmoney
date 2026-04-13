@@ -280,8 +280,114 @@ class CategoryNotifier extends Notifier<CategoryState> {
       print(e);
     }
   }
+
+  // ── AI Auto-create helpers ────────────────────────────────────────────────
+
+  /// Get all category parent names (for AI prompt context)
+  List<String> getAllCategoryNames() {
+    return [...state.expenseParents, ...state.incomeParents]
+        .map((c) => c.name)
+        .toList();
+  }
+
+  /// Get all category item names (for AI prompt context)
+  List<String> getAllItemNames() {
+    return [...state.expenseItems, ...state.incomeItems]
+        .map((i) => i.name)
+        .toList();
+  }
+
+  /// Find existing category by fuzzy name match, or create a new one.
+  /// Returns the category ID.
+  Future<String> findOrCreateCategory(String suggestedName, {String type = 'expense'}) async {
+    final parents = type == 'expense' ? state.expenseParents : state.incomeParents;
+
+    // Fuzzy match: lowercase contains
+    final match = parents.cast<CategoryModel?>().firstWhere(
+      (p) => p!.name.toLowerCase().contains(suggestedName.toLowerCase()) ||
+             suggestedName.toLowerCase().contains(p.name.toLowerCase()),
+      orElse: () => null,
+    );
+
+    if (match != null) return match.id;
+
+    // Not found → create new
+    final bookId = ref.read(bookProvider).activeBook?.id;
+    final user = ref.read(currentUserProvider);
+    if (bookId == null || user == null) {
+      return parents.isNotEmpty ? parents.first.id : '';
+    }
+
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final res = await client.from('categories').insert({
+        'user_id': user.id,
+        'book_id': bookId,
+        'name': suggestedName,
+        'type': type,
+        'icon': Icons.category_rounded.codePoint.toString(),
+        'color': type == 'expense' ? '0xFF448AFF' : '0xFF009688',
+      }).select().single();
+
+      final newCat = CategoryModel.fromJson(res);
+      
+      // Update local state
+      if (type == 'expense') {
+        state = state.copyWith(expenseParents: [...state.expenseParents, newCat]);
+      } else {
+        state = state.copyWith(incomeParents: [...state.incomeParents, newCat]);
+      }
+
+      return newCat.id;
+    } catch (e) {
+      print('Error creating category: $e');
+      return parents.isNotEmpty ? parents.first.id : '';
+    }
+  }
+
+  /// Find existing category item by fuzzy name match, or create a new one.
+  /// Returns the category item ID.
+  Future<String> findOrCreateItem(String categoryId, String suggestedItemName) async {
+    final allItems = [...state.expenseItems, ...state.incomeItems];
+    
+    // Look for existing item in this category
+    final itemsInCategory = allItems.where((i) => i.categoryId == categoryId).toList();
+    final match = itemsInCategory.cast<CategoryItemModel?>().firstWhere(
+      (i) => i!.name.toLowerCase().contains(suggestedItemName.toLowerCase()) ||
+             suggestedItemName.toLowerCase().contains(i.name.toLowerCase()),
+      orElse: () => null,
+    );
+
+    if (match != null) return match.id;
+
+    // Not found → create new
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final res = await client.from('category_items').insert({
+        'category_id': categoryId,
+        'name': suggestedItemName,
+        'icon': Icons.label_rounded.codePoint.toString(),
+      }).select().single();
+
+      final newItem = CategoryItemModel.fromJson(res);
+
+      // Update local state
+      final isExpense = state.expenseParents.any((p) => p.id == categoryId);
+      if (isExpense) {
+        state = state.copyWith(expenseItems: [...state.expenseItems, newItem]);
+      } else {
+        state = state.copyWith(incomeItems: [...state.incomeItems, newItem]);
+      }
+
+      return newItem.id;
+    } catch (e) {
+      print('Error creating category item: $e');
+      return '';
+    }
+  }
 }
 
 final categoryProvider = NotifierProvider<CategoryNotifier, CategoryState>(() {
   return CategoryNotifier();
 });
+
