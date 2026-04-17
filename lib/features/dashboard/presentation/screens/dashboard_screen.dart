@@ -25,6 +25,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _tabIndex = 0;
   bool _isAnalyzing = false;
+  OverlayEntry? _overlayEntry;
+  int _hoveredIndex = -1;
+  final GlobalKey _centerBtnKey = GlobalKey();
 
   final List<Widget> _pages = const [
     HomeTab(),
@@ -194,22 +197,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             final isCenter = i == 2;
 
             return Expanded(
-              child: InkWell(
-                onTap: () {
-                  if (i == 2) {
-                    _showAddOptions(context);
-                  } else {
-                    setState(() => _tabIndex = tabIdx!);
-                  }
-                },
-                onLongPress: () {
-                  if (i == 2) {
-                    _showAddOptions(context);
-                  }
-                },
-                borderRadius: BorderRadius.circular(28),
-                child: isCenter
-                    ? Center(
+              child: isCenter
+                  ? GestureDetector(
+                      key: _centerBtnKey,
+                      onTap: _openAddTransaction, // simple tap opens manual add
+                      onLongPressStart: (details) => _showHoldMenu(),
+                      onLongPressMoveUpdate: (details) => _updateHoldMenu(details),
+                      onLongPressEnd: (details) => _endHoldMenu(),
+                      onLongPressCancel: () => _endHoldMenu(isCancel: true),
+                      child: Center(
                         child: Container(
                           width: 50,
                           height: 50,
@@ -226,8 +222,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           child: Icon(item['icon'] as IconData, color: Colors.white, size: 24),
                         ),
-                      )
-                    : Column(
+                      ),
+                    )
+                  : InkWell(
+                      onTap: () {
+                        setState(() => _tabIndex = tabIdx!);
+                      },
+                      borderRadius: BorderRadius.circular(28),
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
@@ -256,7 +258,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                         ],
                       ),
-              ),
+                    ),
             );
           }),
         ),
@@ -264,84 +266,128 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  void _showAddOptions(BuildContext context) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withOpacity(0.5),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 110),
-            child: Material(
-              color: Colors.transparent,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+  void _showHoldMenu() {
+    if (_overlayEntry != null) return;
+    
+    RenderBox? renderBox = _centerBtnKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final centerPos = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateOverlay) {
+            return Positioned.fill(
+              child: Stack(
                 children: [
-                  _buildOptionBubble(context, Icons.edit_rounded, 'Manual', () {
-                    Navigator.pop(context);
-                    _openAddTransaction();
-                  }),
-                  const SizedBox(width: 24),
-                  _buildOptionBubble(context, Icons.qr_code_scanner_rounded, 'Scan', () {
-                    Navigator.pop(context);
-                    _startScan();
-                  }),
-                  const SizedBox(width: 24),
-                  _buildOptionBubble(context, Icons.mic_rounded, 'Suara', () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fitur Voice Card segera hadir!')),
+                  // Barrier to dim background
+                  Positioned.fill(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 200),
+                      builder: (context, val, child) => Container(color: Colors.black.withOpacity(0.5 * val)),
+                    ),
+                  ),
+                  // Bubbles
+                  ...List.generate(3, (index) {
+                    final isHovered = _hoveredIndex == index;
+                    Offset pos;
+                    String label;
+                    IconData icon;
+                    if (index == 0) { pos = const Offset(-80, -90); label = 'Manual'; icon = Icons.edit_rounded; }
+                    else if (index == 1) { pos = const Offset(0, -110); label = 'Scan'; icon = Icons.qr_code_scanner_rounded; }
+                    else { pos = const Offset(80, -90); label = 'Suara'; icon = Icons.mic_rounded; }
+                    
+                    return Positioned(
+                      left: centerPos.dx + pos.dx - 30, // 30 is half of 60 size
+                      top: centerPos.dy + pos.dy - 30,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: isHovered ? 1.15 : 1.0),
+                        duration: const Duration(milliseconds: 150),
+                        builder: (context, scale, child) {
+                          return Transform.scale(
+                            scale: scale,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 60, height: 60,
+                                  decoration: BoxDecoration(
+                                    color: isHovered ? AppColors.accent : Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(color: isHovered ? AppColors.accent.withOpacity(0.6) : Colors.black26, 
+                                        blurRadius: 12, spreadRadius: isHovered ? 2 : 0)
+                                    ],
+                                  ),
+                                  child: Icon(icon, color: isHovered ? Colors.white : AppColors.primary, size: 30),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  label, 
+                                  style: TextStyle(
+                                    color: isHovered ? AppColors.accent : Colors.white, 
+                                    fontWeight: FontWeight.bold, fontSize: 13,
+                                    decoration: TextDecoration.none,
+                                    shadows: const [Shadow(color: Colors.black54, blurRadius: 4)]
+                                  )
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      ),
                     );
                   }),
                 ],
               ),
-            ),
-          ),
+            );
+          }
         );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return FadeTransition(opacity: anim1, child: child);
-      },
+      }
     );
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
-  Widget _buildOptionBubble(BuildContext context, IconData icon, String label, VoidCallback onTap) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 56, height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                )
-              ],
-            ),
-            child: Icon(icon, color: AppColors.primary, size: 28),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            decoration: TextDecoration.none, // Inherit from material correctly
-          ),
-        ),
-      ],
-    );
+  void _updateHoldMenu(LongPressMoveUpdateDetails details) {
+    if (_overlayEntry == null) return;
+    
+    RenderBox? renderBox = _centerBtnKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final finger = details.globalPosition;
+    final centerPos = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
+
+    final offsets = [
+      centerPos + const Offset(-80, -90),
+      centerPos + const Offset(0, -110),
+      centerPos + const Offset(80, -90),
+    ];
+
+    int newHovered = -1;
+    for (int i = 0; i < offsets.length; i++) {
+      if ((finger - offsets[i]).distance < 50) {
+        newHovered = i;
+        break;
+      }
+    }
+
+    if (_hoveredIndex != newHovered) {
+      _hoveredIndex = newHovered;
+      _overlayEntry?.markNeedsBuild();
+    }
+  }
+
+  void _endHoldMenu({bool isCancel = false}) {
+    if (_overlayEntry != null) {
+      final selected = isCancel ? -1 : _hoveredIndex;
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      _hoveredIndex = -1;
+
+      if (selected == 0) _openAddTransaction();
+      else if (selected == 1) _startScan();
+      else if (selected == 2) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fitur Voice Card segera hadir!')));
+    }
   }
 }
