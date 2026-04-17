@@ -75,7 +75,8 @@ create table if not exists books (
     name text not null,
     icon text,
     created_at timestamp with time zone default now() not null,
-    updated_at timestamp with time zone default now() not null
+    updated_at timestamp with time zone default now() not null,
+    unique(user_id, name)
 );
 
 create table if not exists wallets (
@@ -94,7 +95,8 @@ create table if not exists wallets (
     last_interest_payout timestamp with time zone,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
-    deleted_at timestamp with time zone
+    deleted_at timestamp with time zone,
+    unique(user_id, book_id, name)
 );
 
 create table if not exists categories (
@@ -108,7 +110,8 @@ create table if not exists categories (
     type text not null, -- 'income', 'expense'
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
-    deleted_at timestamp with time zone
+    deleted_at timestamp with time zone,
+    unique(user_id, book_id, name, type)
 );
 
 create table if not exists category_items (
@@ -118,7 +121,8 @@ create table if not exists category_items (
     icon text,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
-    deleted_at timestamp with time zone
+    deleted_at timestamp with time zone,
+    unique(category_id, name)
 );
 
 create table if not exists saving_goals (
@@ -130,7 +134,9 @@ create table if not exists saving_goals (
     current_amount numeric not null default 0,
     target_date date,
     created_at timestamp with time zone default now() not null,
-    updated_at timestamp with time zone default now() not null
+    updated_at timestamp with time zone default now() not null,
+    check (target_amount >= 0),
+    check (current_amount >= 0)
 );
 
 create table if not exists transactions (
@@ -146,8 +152,10 @@ create table if not exists transactions (
     date timestamp with time zone not null,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
-    deleted_at timestamp with time zone
-);
+    deleted_at timestamp with time zone,
+    check (amount >= 0)
+)
+;
 
 create table if not exists transaction_attachments (
     id uuid primary key default uuid_generate_v4(),
@@ -167,8 +175,10 @@ create table if not exists transfer_transactions (
     note text,
     created_at timestamp with time zone default now() not null,
     updated_at timestamp with time zone default now() not null,
-    deleted_at timestamp with time zone
-);
+    deleted_at timestamp with time zone,
+    check (amount >= 0)
+)
+;
 
 create table if not exists recurring_transactions (
     id uuid primary key default uuid_generate_v4(),

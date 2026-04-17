@@ -9,8 +9,9 @@ class AIReceiptItem {
   final double price;
   final int quantity;
   final double subtotal;
-  String suggestedCategory;
-  String suggestedCategoryItem;
+  final String suggestedCategory;
+  final String suggestedCategoryItem;
+  final String? suggestedIcon;
 
   AIReceiptItem({
     required this.name,
@@ -19,6 +20,7 @@ class AIReceiptItem {
     required this.subtotal,
     required this.suggestedCategory,
     required this.suggestedCategoryItem,
+    this.suggestedIcon,
   });
 
   factory AIReceiptItem.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class AIReceiptItem {
       subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
       suggestedCategory: json['suggestedCategory'] as String? ?? 'Kebutuhan',
       suggestedCategoryItem: json['suggestedCategoryItem'] as String? ?? 'Lainnya',
+      suggestedIcon: json['suggestedIcon'] as String?,
     );
   }
 }
@@ -163,6 +166,11 @@ Aturan:
 - "paymentMethod" bisa berisi: "CASH", "QRIS", "DEBIT", "KREDIT", "GOPAY", "OVO", "SHOPEEPAY", "DANA", "LINKAJA", atau nama bank seperti "BCA", "BRI", dst. Null jika tidak terlihat.
 - "suggestedCategory" harus berupa nama kategori pengeluaran yang logis
 - "suggestedCategoryItem" harus berupa nama item spesifik di bawah kategori tersebut
+- "suggestedIcon" pilih salah satu asset path yang paling cocok dari daftar bertema ini:
+    * Belanja: assets/images/categories/belanja/shop_1.png s/d shop_15.png
+    * Makanan: assets/images/categories/makanan/food_1.png s/d food_22.png
+    * Minuman: assets/images/categories/minuman/drink_1.png s/d drink_10.png
+  Gunakan null jika tidak ada yang sangat cocok.
 - Jika tanggal tidak jelas, set null
 - Semua angka dalam Rupiah tanpa desimal
     ''');
@@ -184,6 +192,84 @@ Aturan:
     } catch (e) {
       print('AI Error: $e');
       rethrow;
+    }
+  }
+
+  // ========== VOICE ASSISTANT ENGINE ==========
+
+  Future<Map<String, dynamic>?> processCommand(
+    String text, {
+    required List<String> walletNames,
+    required List<String> categoryNames,
+  }) async {
+    if (_apiKey.isEmpty) return null;
+
+    final model = GenerativeModel(
+      model: 'gemini-flash-latest',
+      apiKey: _apiKey,
+      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
+    );
+
+    final prompt = '''
+Kamu adalah asisten keuangan cerdas bernama Urmoney.
+Tugasmu adalah menganalisis teks perintah suara dari user dan mengubahnya menjadi aksi database.
+
+Konteks User:
+- Daftar Dompet: ${walletNames.join(", ")}
+- Daftar Kategori: ${categoryNames.join(", ")}
+
+Teks User: "$text"
+
+Berdasarkan teks tersebut, tentukan aksi yang paling tepat.
+Kembalikan JSON dengan format aksi berikut:
+
+1. Untuk Menambah Transaksi (Expense/Income):
+{
+  "action": "add_transaction",
+  "data": {
+    "type": "expense", // atau "income"
+    "amount": 50000,
+    "note": "Kopi pagi",
+    "walletName": "Dana", // Harus mirip dengan daftar dompet di atas
+    "categoryName": "Makan & Minum", // Harus mirip dengan daftar kategori di atas
+    "iconPath": "assets/images/categories/makanan/food_1.png" // Pilih icon bertema yang cocok
+  },
+  "reply": "Oke, sudah saya catat pengeluaran kopi Rp 50.000 pakai Dana."
+}
+
+2. Untuk Transfer:
+{
+  "action": "transfer",
+  "data": {
+    "fromWallet": "Bank BCA",
+    "toWallet": "OVO",
+    "amount": 100000,
+    "note": "Top up saldo"
+  },
+  "reply": "Siap, sudah saya pindahkan saldo Rp 100.000 dari BCA ke OVO."
+}
+
+3. Jika Perintah Tidak Jelas / Tidak Didukung:
+{
+  "action": "unknown",
+  "reply": "Maaf, saya belum paham perintah tersebut. Bisa diulangi?"
+}
+
+Aturan Penting:
+- Selalu gunakan bahasa Indonesia yang ramah dan singkat untuk "reply".
+- "action" hanya boleh: "add_transaction", "transfer", atau "unknown".
+- Berikan suggested iconPath dari daftar ini jika menambah transaksi:
+  * belanja/shop_1 - 15.png, makanan/food_1 - 22.png, minuman/drink_1 - 10.png.
+''';
+
+    try {
+      final response = await model.generateContent([Content.text(prompt)]);
+      final resultText = response.text;
+      if (resultText == null) return null;
+      return jsonDecode(resultText);
+    } catch (e) {
+      print("[AIService] Command Error: $e");
+      return null;
     }
   }
 }

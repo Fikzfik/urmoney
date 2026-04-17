@@ -14,6 +14,7 @@ import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import 'package:urmoney/core/services/ai_service.dart';
+import 'package:urmoney/features/assistant/presentation/screens/assistant_overlay.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -387,7 +388,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
       if (selected == 0) _openAddTransaction();
       else if (selected == 1) _startScan();
-      else if (selected == 2) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fitur Voice Card segera hadir!')));
+      else if (selected == 2) _startVoiceAssistant();
     }
+  }
+
+  void _startVoiceAssistant() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const AssistantOverlay(),
+    );
   }
 }

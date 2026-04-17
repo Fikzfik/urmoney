@@ -299,7 +299,7 @@ class CategoryNotifier extends Notifier<CategoryState> {
 
   /// Find existing category by fuzzy name match, or create a new one.
   /// Returns the category ID.
-  Future<String> findOrCreateCategory(String suggestedName, {String type = 'expense'}) async {
+  Future<String> findOrCreateCategory(String suggestedName, {String type = 'expense', String? iconPath}) async {
     final parents = type == 'expense' ? state.expenseParents : state.incomeParents;
 
     // Fuzzy match: lowercase contains
@@ -325,7 +325,7 @@ class CategoryNotifier extends Notifier<CategoryState> {
         'book_id': bookId,
         'name': suggestedName,
         'type': type,
-        'icon': Icons.category_rounded.codePoint.toString(),
+        'icon': iconPath ?? Icons.category_rounded.codePoint.toString(),
         'color': type == 'expense' ? '0xFF448AFF' : '0xFF009688',
       }).select().single();
 
@@ -347,7 +347,7 @@ class CategoryNotifier extends Notifier<CategoryState> {
 
   /// Find existing category item by fuzzy name match, or create a new one.
   /// Returns the category item ID.
-  Future<String> findOrCreateItem(String categoryId, String suggestedItemName) async {
+  Future<String> findOrCreateItem(String categoryId, String suggestedItemName, {String? iconPath}) async {
     final allItems = [...state.expenseItems, ...state.incomeItems];
     
     // Look for existing item in this category
@@ -366,7 +366,7 @@ class CategoryNotifier extends Notifier<CategoryState> {
       final res = await client.from('category_items').insert({
         'category_id': categoryId,
         'name': suggestedItemName,
-        'icon': Icons.label_rounded.codePoint.toString(),
+        'icon': iconPath ?? Icons.label_rounded.codePoint.toString(),
       }).select().single();
 
       final newItem = CategoryItemModel.fromJson(res);
