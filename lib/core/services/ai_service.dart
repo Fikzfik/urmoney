@@ -9,8 +9,8 @@ class AIReceiptItem {
   final double price;
   final int quantity;
   final double subtotal;
-  final String suggestedCategory;
-  final String suggestedCategoryItem;
+  String suggestedCategory;
+  String suggestedCategoryItem;
   final String? suggestedIcon;
 
   AIReceiptItem({
