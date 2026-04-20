@@ -205,76 +205,83 @@ Aturan:
   }) async {
     if (_apiKey.isEmpty) return null;
 
-    final model = GenerativeModel(
-      model: 'gemini-2.5-flash', // Current stable as of April 2026
-      apiKey: _apiKey,
-      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
-    );
+    final modelsToTry = [
+      'gemini-3.1-flash', 
+      'gemini-3.1-flash-lite',
+      'gemini-2.5-flash',
+      'gemini-2.5-pro' // If paid key
+    ];
 
-    final prompt = '''
-Kamu adalah Urmoney, asisten keuangan cerdas. 
-Tugasmu: Analisis percakapan user dan ubah menjadi aksi database.
+    String lastError = "";
 
-Konteks Database User:
-- Daftar Dompet: ${walletNames.join(", ")}
-- Daftar Kategori Utama: ${categoryNames.join(", ")}
-- Contoh Sub-kategori: ${categoryItemNames.take(15).join(", ")}
+    for (var modelName in modelsToTry) {
+      try {
+        final model = GenerativeModel(
+          model: modelName,
+          apiKey: _apiKey,
+          generationConfig: GenerationConfig(responseMimeType: 'application/json'),
+        );
 
-Riwayat Percakapan & Input:
+        final prompt = '''
+(Context: April 2026)
+Kamu adalah Urmoney, asisten keuangan otomatis.
+Tugas: Ubah input user menjadi JSON untuk database.
+
+Database:
+- Dompet: ${walletNames.join(", ")}
+- Kategori Utama: ${categoryNames.join(", ")}
+- Item Terdaftar: ${categoryItemNames.take(20).join(", ")}
+
+Data User:
 $text
 
-ATURAN PENTING:
-1. Jika nominal uang dan keperluan sudah jelas, GUNAKAN aksi "add_transaction".
-2. Jika kategori/item belum ada di daftar di atas, BUATKAN nama kategori/item yang paling logis dalam Bahasa Indonesia. JANGAN bertanya kecuali nominal uang tidak ada.
-3. Untuk dompet, jika user tidak menyebutkan, gunakan dompet pertama: "${walletNames.isNotEmpty ? walletNames.first : 'Cash'}".
-4. Selalu pilih "iconPath" yang paling cocok dari daftar di bawah.
+ATURAN MUTLAK:
+1. Jika ada Angka/Nominal (misal: 30rb, 30.000) dan Keperluan (misal: makan, bensin), gunakan aksi "add_transaction".
+2. JANGAN BERTANYA jika nominal sudah ada. Jika kategori tidak ada di daftar, BUAT kategori baru yang pas.
+3. "categoryItemName" HARUS diisi nama benda spesifik (misal: "Iuran Tisl").
+4. Dompet default: "${walletNames.isNotEmpty ? walletNames.first : 'Cash'}".
 
-Format JSON yang harus dikembalikan:
-- Transaksi: {"action": "add_transaction", "data": {"type": "expense", "amount": 50000, "note": "...", "walletName": "...", "categoryName": "...", "categoryItemName": "...", "iconPath": "assets/images/categories/..."}, "reply": "Sip! [Item] sebesar Rp [Nominal] sudah dicatat ke [Dompet]."}
-- Transfer: {"action": "transfer", "data": {"fromWallet": "...", "toWallet": "...", "amount": 0, "note": "..."}, "reply": "..."}
-- Tanya (hanya jika nominal tidak ada): {"action": "ask_question", "reply": "Boleh tahu berapa nominal yang dikeluarkan?"}
-
-Aturan Ketat Icon:
-- Belanja: assets/images/categories/belanja/shop_1.png s/d shop_15.png
-- Makanan: assets/images/categories/makanan/food_1.png s/d food_22.png
-- Minuman: assets/images/categories/minuman/drink_1.png s/d drink_10.png
+JSON:
+{
+  "action": "add_transaction",
+  "data": {
+    "type": "expense",
+    "amount": 30000,
+    "note": "Keterangan",
+    "walletName": "Cash",
+    "categoryName": "Kategori",
+    "categoryItemName": "Item",
+    "iconPath": "assets/images/categories/makanan/food_1.png"
+  },
+  "reply": "Keterangan dicatat ke Cash."
+}
 ''';
 
-    try {
-      final response = await model.generateContent([Content.text(prompt)]);
-      String? resultText = response.text;
-      
-      if (resultText == null || resultText.isEmpty) {
-        return {
-          'action': 'unknown',
-          'reply': 'Maaf, asisten kehilangan sinyal pikiran. Coba ulangi?'
-        };
+        final response = await model.generateContent([Content.text(prompt)]);
+        String? resultText = response.text;
+        
+        if (resultText == null || resultText.isEmpty) continue;
+
+        if (resultText.contains('```json')) {
+          resultText = resultText.split('```json')[1].split('```')[0].trim();
+        } else if (resultText.contains('```')) {
+          resultText = resultText.split('```')[1].split('```')[0].trim();
+        }
+
+        return jsonDecode(resultText);
+      } catch (e) {
+        lastError = e.toString();
+        print("[AIService] Model $modelName failed: $e");
+        // Loop continue to next model
       }
-
-      // Sometimes models wrap JSON in markdown blocks even with responseMimeType
-      if (resultText.contains('```json')) {
-        resultText = resultText.split('```json')[1].split('```')[0].trim();
-      } else if (resultText.contains('```')) {
-        resultText = resultText.split('```')[1].split('```')[0].trim();
-      }
-
-      return jsonDecode(resultText);
-    } catch (e) {
-      print("[AIService] Command Error: $e");
-      
-      String diagnosticInfo = e.toString();
-      try {
-        // Try to list models to help the user find the right ID
-        final models = await listAvailableModels();
-        diagnosticInfo += "\n\nAvailable Models: ${models.join(', ')}";
-      } catch (_) {}
-
-      return {
-        'action': 'error',
-        'reply': 'Gagal akses AI. Detail: $diagnosticInfo',
-        'data': {'raw_error': e.toString()}
-      };
     }
+
+    // If all models failed
+    return {
+      'action': 'error',
+      'reply': 'Semua model Gemini sibuk/gagal. Terakhir: $lastError',
+      'data': {'raw_error': lastError}
+    };
   }
 
   Future<List<String>> listAvailableModels() async {
