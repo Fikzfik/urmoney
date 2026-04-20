@@ -54,15 +54,19 @@ class AssistantNotifier extends Notifier<AssistantState> {
     try {
       final ai = ref.read(aiServiceProvider);
       final wallets = ref.read(walletProvider).value ?? [];
-      final categories = ref.read(categoryProvider).allParents;
+      final categories = ref.read(categoryProvider);
+
+      // Pass history for context (includes the message we just added)
+      final history = state.messages.map((m) => "${m['role'] == 'user' ? 'User' : 'Assistant'}: ${m['text']}").join("\n");
 
       final result = await ai.processCommand(
-        text,
+        history, 
         walletNames: wallets.map((w) => w.name).toList(),
-        categoryNames: categories.map((c) => c.name).toList(),
+        categoryNames: categories.allParents.map((c) => c.name).toList(),
+        categoryItemNames: [...categories.expenseItems, ...categories.incomeItems].map((i) => i.name).toList(),
       );
 
-      if (result == null || result['action'] == 'unknown') {
+      if (result == null || result['action'] == 'unknown' || result['action'] == 'ask_question') {
         addMessage(result?['reply'] ?? "Maaf, saya tidak mengerti. Bisa diulangi?", false);
       } else {
         await _executeAction(result);
@@ -103,7 +107,17 @@ class AssistantNotifier extends Notifier<AssistantState> {
         iconPath: iconPath,
       );
 
-      // 3. Create Transaction
+      // 3. Resolve/Create Item (Sub-category)
+      final itemName = data['categoryItemName'] as String?;
+      if (itemName != null && itemName.isNotEmpty) {
+        await ref.read(categoryProvider.notifier).findOrCreateItem(
+          catId, 
+          itemName,
+          iconPath: iconPath,
+        );
+      }
+
+      // 4. Create Transaction
       final trans = TransactionModel(
         id: '',
         userId: user.id,

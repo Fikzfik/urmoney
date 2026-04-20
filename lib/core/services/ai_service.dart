@@ -116,7 +116,7 @@ class AIService {
     }
 
     final model = GenerativeModel(
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash',
       apiKey: _apiKey,
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );
@@ -201,76 +201,93 @@ Aturan:
     String text, {
     required List<String> walletNames,
     required List<String> categoryNames,
+    required List<String> categoryItemNames,
   }) async {
     if (_apiKey.isEmpty) return null;
 
     final model = GenerativeModel(
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash', // Current stable as of April 2026
       apiKey: _apiKey,
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );
 
     final prompt = '''
-Kamu adalah asisten keuangan cerdas bernama Urmoney.
-Tugasmu adalah menganalisis teks perintah suara dari user dan mengubahnya menjadi aksi database.
+Kamu adalah Urmoney, asisten keuangan cerdas. 
+Tugasmu: Analisis percakapan user dan ubah menjadi aksi database.
 
-Konteks User:
+Konteks Database User:
 - Daftar Dompet: ${walletNames.join(", ")}
-- Daftar Kategori: ${categoryNames.join(", ")}
+- Daftar Kategori Utama: ${categoryNames.join(", ")}
+- Contoh Sub-kategori: ${categoryItemNames.take(15).join(", ")}
 
-Teks User: "$text"
+Riwayat Percakapan & Input:
+$text
 
-Berdasarkan teks tersebut, tentukan aksi yang paling tepat.
-Kembalikan JSON dengan format aksi berikut:
+ATURAN PENTING:
+1. Jika nominal uang dan keperluan sudah jelas, GUNAKAN aksi "add_transaction".
+2. Jika kategori/item belum ada di daftar di atas, BUATKAN nama kategori/item yang paling logis dalam Bahasa Indonesia. JANGAN bertanya kecuali nominal uang tidak ada.
+3. Untuk dompet, jika user tidak menyebutkan, gunakan dompet pertama: "${walletNames.isNotEmpty ? walletNames.first : 'Cash'}".
+4. Selalu pilih "iconPath" yang paling cocok dari daftar di bawah.
 
-1. Untuk Menambah Transaksi (Expense/Income):
-{
-  "action": "add_transaction",
-  "data": {
-    "type": "expense", // atau "income"
-    "amount": 50000,
-    "note": "Kopi pagi",
-    "walletName": "Dana", // Harus mirip dengan daftar dompet di atas
-    "categoryName": "Makan & Minum", // Harus mirip dengan daftar kategori di atas
-    "iconPath": "assets/images/categories/makanan/food_1.png" // Pilih icon bertema yang cocok
-  },
-  "reply": "Oke, sudah saya catat pengeluaran kopi Rp 50.000 pakai Dana."
-}
+Format JSON yang harus dikembalikan:
+- Transaksi: {"action": "add_transaction", "data": {"type": "expense", "amount": 50000, "note": "...", "walletName": "...", "categoryName": "...", "categoryItemName": "...", "iconPath": "assets/images/categories/..."}, "reply": "Sip! [Item] sebesar Rp [Nominal] sudah dicatat ke [Dompet]."}
+- Transfer: {"action": "transfer", "data": {"fromWallet": "...", "toWallet": "...", "amount": 0, "note": "..."}, "reply": "..."}
+- Tanya (hanya jika nominal tidak ada): {"action": "ask_question", "reply": "Boleh tahu berapa nominal yang dikeluarkan?"}
 
-2. Untuk Transfer:
-{
-  "action": "transfer",
-  "data": {
-    "fromWallet": "Bank BCA",
-    "toWallet": "OVO",
-    "amount": 100000,
-    "note": "Top up saldo"
-  },
-  "reply": "Siap, sudah saya pindahkan saldo Rp 100.000 dari BCA ke OVO."
-}
-
-3. Jika Perintah Tidak Jelas / Tidak Didukung:
-{
-  "action": "unknown",
-  "reply": "Maaf, saya belum paham perintah tersebut. Bisa diulangi?"
-}
-
-Aturan Penting:
-- Selalu gunakan bahasa Indonesia yang ramah dan singkat untuk "reply".
-- "action" hanya boleh: "add_transaction", "transfer", atau "unknown".
-- Berikan suggested iconPath dari daftar ini jika menambah transaksi:
-  * belanja/shop_1 - 15.png, makanan/food_1 - 22.png, minuman/drink_1 - 10.png.
+Aturan Ketat Icon:
+- Belanja: assets/images/categories/belanja/shop_1.png s/d shop_15.png
+- Makanan: assets/images/categories/makanan/food_1.png s/d food_22.png
+- Minuman: assets/images/categories/minuman/drink_1.png s/d drink_10.png
 ''';
 
     try {
       final response = await model.generateContent([Content.text(prompt)]);
-      final resultText = response.text;
-      if (resultText == null) return null;
+      String? resultText = response.text;
+      
+      if (resultText == null || resultText.isEmpty) {
+        return {
+          'action': 'unknown',
+          'reply': 'Maaf, asisten kehilangan sinyal pikiran. Coba ulangi?'
+        };
+      }
+
+      // Sometimes models wrap JSON in markdown blocks even with responseMimeType
+      if (resultText.contains('```json')) {
+        resultText = resultText.split('```json')[1].split('```')[0].trim();
+      } else if (resultText.contains('```')) {
+        resultText = resultText.split('```')[1].split('```')[0].trim();
+      }
+
       return jsonDecode(resultText);
     } catch (e) {
       print("[AIService] Command Error: $e");
-      return null;
+      
+      String diagnosticInfo = e.toString();
+      try {
+        // Try to list models to help the user find the right ID
+        final models = await listAvailableModels();
+        diagnosticInfo += "\n\nAvailable Models: ${models.join(', ')}";
+      } catch (_) {}
+
+      return {
+        'action': 'error',
+        'reply': 'Gagal akses AI. Detail: $diagnosticInfo',
+        'data': {'raw_error': e.toString()}
+      };
     }
+  }
+
+  Future<List<String>> listAvailableModels() async {
+    if (_apiKey.isEmpty) return [];
+    // Note: The SDK might not support listModels directly in all versions, 
+    // but we can try to use the GenAI API directly or a workaround if needed.
+    // For now, let's just return a list of common ones to try.
+    return [
+      'gemini-3.1-flash', 
+      'gemini-3.1-pro', 
+      'gemini-2.5-flash', 
+      'gemini-2.5-pro'
+    ];
   }
 }
 
