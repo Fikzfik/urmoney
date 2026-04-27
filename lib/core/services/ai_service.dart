@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 class AIReceiptItem {
   final String name;
@@ -105,6 +106,7 @@ class AIReceiptResult {
 
 class AIService {
   String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  String get _groqApiKey => dotenv.env['GROQ_API_KEY'] ?? '';
 
   Future<AIReceiptResult?> processReceipt(
     Uint8List imageBytes, {
@@ -114,12 +116,6 @@ class AIService {
     if (_apiKey.isEmpty || _apiKey == 'YOUR_GEMINI_API_KEY_HERE') {
       throw Exception('Gemini API Key belum diatur di file .env');
     }
-
-    final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: _apiKey,
-      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
-    );
 
     final categoriesHint = existingCategories.isNotEmpty
         ? 'Kategori yang sudah ada di app: ${existingCategories.join(", ")}. '
@@ -182,17 +178,98 @@ Aturan:
       ])
     ];
 
-    try {
-      final response = await model.generateContent(content);
-      final text = response.text;
-      if (text == null) return null;
+    final receiptModels = [
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro-vision',
+    ];
 
-      final data = jsonDecode(text);
-      return AIReceiptResult.fromJson(data);
-    } catch (e) {
-      print('AI Error: $e');
-      rethrow;
+    for (final modelName in receiptModels) {
+      try {
+        final model = GenerativeModel(
+          model: modelName,
+          apiKey: _apiKey,
+          generationConfig: GenerationConfig(responseMimeType: 'application/json'),
+        );
+
+        final response = await model.generateContent(content);
+        final text = response.text;
+        if (text == null) continue;
+
+        final data = jsonDecode(text);
+        return AIReceiptResult.fromJson(data);
+      } catch (e) {
+        print('AI Receipt Error ($modelName): $e');
+        
+        if (modelName == receiptModels.last) {
+          // FINAL FALLBACK TO GROQ VISION
+          if (_groqApiKey.isNotEmpty && _groqApiKey != 'YOUR_GROQ_API_KEY_HERE') {
+            try {
+              print("[AIService] Falling back to Groq Vision...");
+              return await _processReceiptWithGroq(imageBytes, existingCategories, existingCategoryItems);
+            } catch (ge) {
+              print("[AIService] Groq Vision also failed: $ge");
+              rethrow;
+            }
+          }
+          rethrow;
+        }
+        
+        // Small delay before next model to avoid rate limits
+        await Future.delayed(Duration(seconds: 1));
+      }
     }
+    return null;
+  }
+
+  Future<AIReceiptResult?> _processReceiptWithGroq(
+    Uint8List imageBytes,
+    List<String> existingCategories,
+    List<String> existingCategoryItems,
+  ) async {
+    final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
+    final base64Image = base64Encode(imageBytes);
+
+    final prompt = '''
+Analisis gambar struk belanja ini dan kembalikan JSON:
+{
+  "storeName": "Nama Toko",
+  "date": "YYYY-MM-DD",
+  "items": [{"name": "Item", "price": 1000, "quantity": 1, "subtotal": 1000, "suggestedCategory": "Cat", "suggestedCategoryItem": "Sub"}],
+  "subtotal": 1000, "tax": 0, "total": 1000, "paymentMethod": "CASH"
+}
+''';
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $_groqApiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': 'llama-3.2-11b-vision-preview', // Vision model
+        'messages': [
+          {
+            'role': 'user',
+            'content': [
+              {'type': 'text', 'text': prompt},
+              {
+                'type': 'image_url',
+                'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
+              }
+            ]
+          }
+        ],
+        'response_format': {'type': 'json_object'}
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final content = data['choices'][0]['message']['content'];
+      return AIReceiptResult.fromJson(jsonDecode(content));
+    }
+    throw Exception('Groq Vision failed: ${response.body}');
   }
 
   // ========== VOICE ASSISTANT ENGINE ==========
@@ -206,10 +283,8 @@ Aturan:
     if (_apiKey.isEmpty) return null;
 
     final modelsToTry = [
-      'gemini-3.1-flash', 
-      'gemini-3.1-flash-lite',
-      'gemini-2.5-flash',
-      'gemini-2.5-pro' // If paid key
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
     ];
 
     String lastError = "";
@@ -271,8 +346,23 @@ JSON:
         return jsonDecode(resultText);
       } catch (e) {
         lastError = e.toString();
-        print("[AIService] Model $modelName failed: $e");
-        // Loop continue to next model
+        print("[AIService] Gemini $modelName GAGAL: $e");
+        await Future.delayed(Duration(milliseconds: 300));
+      }
+    }
+
+    // FALLBACK KE GROQ (PENTING)
+    if (_groqApiKey.isNotEmpty && _groqApiKey != 'YOUR_GROQ_API_KEY_HERE') {
+      try {
+        print("[AIService] ⚠️ Gemini Limit/Error. Mencoba CADANGAN (Groq)...");
+        final groqResult = await _processWithGroq(text, walletNames, categoryNames, categoryItemNames);
+        if (groqResult != null) {
+          print("[AIService] ✅ Berhasil menggunakan Groq!");
+          return groqResult;
+        }
+      } catch (e) {
+        print("[AIService] ❌ Groq juga gagal: $e");
+        lastError = "Semua provider gagal. Terakhir: $e";
       }
     }
 
@@ -282,6 +372,62 @@ JSON:
       'reply': 'Semua model Gemini sibuk/gagal. Terakhir: $lastError',
       'data': {'raw_error': lastError}
     };
+  }
+
+  Future<Map<String, dynamic>?> _processWithGroq(
+    String text,
+    List<String> walletNames,
+    List<String> categoryNames,
+    List<String> categoryItemNames,
+  ) async {
+    final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
+    
+    final prompt = '''
+(Context: April 2026)
+Kamu adalah Urmoney, asisten keuangan otomatis.
+Ubah input user menjadi JSON.
+Database:
+- Dompet: ${walletNames.join(", ")}
+- Kategori: ${categoryNames.join(", ")}
+Input: "$text"
+
+JSON:
+{
+  "action": "add_transaction",
+  "data": {
+    "type": "expense",
+    "amount": 30000,
+    "note": "Keterangan",
+    "walletName": "Cash",
+    "categoryName": "Kategori",
+    "categoryItemName": "Item",
+    "iconPath": "assets/images/categories/makanan/food_1.png"
+  },
+  "reply": "Keterangan dicatat."
+}
+''';
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $_groqApiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': 'llama-3.3-70b-versatile',
+        'messages': [
+          {'role': 'user', 'content': prompt}
+        ],
+        'response_format': {'type': 'json_object'}
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final content = data['choices'][0]['message']['content'];
+      return jsonDecode(content);
+    }
+    throw Exception('Groq API failed: ${response.body}');
   }
 
   Future<List<String>> listAvailableModels() async {

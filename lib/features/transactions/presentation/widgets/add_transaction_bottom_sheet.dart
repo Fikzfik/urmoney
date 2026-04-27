@@ -253,11 +253,13 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
                         ]
                       : [],
                 ),
-                child: Icon(
-                  item.icon,
-                  color: isSelected ? themeColor : Colors.grey.shade600,
-                  size: 28,
-                ),
+                child: item.iconPath != null
+                    ? Image.asset(item.iconPath!, width: 28, height: 28)
+                    : Icon(
+                        item.icon ?? Icons.help_outline,
+                        color: isSelected ? themeColor : Colors.grey.shade600,
+                        size: 28,
+                      ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -313,8 +315,10 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
           final isSelected = activeIndex == index;
           return ChoiceChip(
             showCheckmark: false,
-            avatar: Icon(parent.icon,
-                size: 14, color: isSelected ? Colors.white : themeColor),
+            avatar: parent.iconPath != null
+                ? Image.asset(parent.iconPath!, width: 14, height: 14)
+                : Icon(parent.icon ?? Icons.category_rounded,
+                    size: 14, color: isSelected ? Colors.white : themeColor),
             label: Text(
               parent.name,
               style: TextStyle(

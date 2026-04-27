@@ -401,7 +401,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: isSelected ? themeColor : Colors.grey.shade200, width: isSelected ? 2 : 1),
                               ),
-                              child: Icon(item.icon, color: isSelected ? themeColor : Colors.grey.shade600, size: 24),
+                              child: item.iconPath != null
+                                  ? Image.asset(item.iconPath!, width: 24, height: 24)
+                                  : Icon(item.icon ?? Icons.help_outline, color: isSelected ? themeColor : Colors.grey.shade600, size: 24),
                             ),
                             const SizedBox(height: 6),
                             Text(item.name, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? themeColor : AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -441,7 +443,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-              child: Icon(item.icon, color: AppColors.primary, size: 20),
+              child: item.iconPath != null
+                  ? Image.asset(item.iconPath!, width: 20, height: 20)
+                  : Icon(item.icon ?? Icons.help_outline, color: AppColors.primary, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(

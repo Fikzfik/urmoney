@@ -311,7 +311,12 @@ class _ParentCategoryCardState extends ConsumerState<_ParentCategoryCard> {
                 ),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(widget.parent.icon, color: Colors.white, size: 22),
+              child: widget.parent.iconPath != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(11),
+                      child: Image.asset(widget.parent.iconPath!, width: 22, height: 22),
+                    )
+                  : Icon(widget.parent.icon ?? Icons.category_rounded, color: Colors.white, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
